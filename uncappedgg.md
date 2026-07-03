@@ -10,7 +10,7 @@ This file tracks implementation work for the Uncapped.gg SaaS project.
 - Decision: Release 1 focuses on shop profiles, admin dashboard, Google Sheets published CSV import, public price list, quote request form, and quote inbox.
 - Decision: PC Builder, compatibility rules, shop branding, share links, bundle/promos, FPS Finder, and delivery/map APIs are later phases.
 - Safety note: Do not delete or mutate files in the existing Shopify repo for this project.
-- Open issue: Node/npm are not currently available in this shell, so dependency install and local build verification must wait until Node is installed.
+- Open issue: Supabase project values and database migration are still needed before testing against real shop data.
 
 ## 2026-07-03 - Release 1 Scaffold
 
@@ -30,9 +30,34 @@ This file tracks implementation work for the Uncapped.gg SaaS project.
   - Customers can select product quantities and submit a quote request.
   - Shop owners can review quotes and update quote status.
 - Tests run:
-  - Static file inspection only.
-  - Full `npm install`, `npm run typecheck`, `npm run lint`, and `npm run build` were not run because Node/npm are not available in this shell.
+  - `npm install`
+  - `npm run typecheck`
+  - `npm run lint`
+  - `npm run build`
 - Open issues:
   - Supabase project values still need to be added to `.env.local`.
   - The initial migration still needs to be applied in Supabase.
-  - First local build should be run after Node is installed.
+
+## 2026-07-03 - Local Node Setup And Verification
+
+- Task: Install local Node/npm tooling and verify the scaffold.
+- Environment:
+  - Installed Node.js LTS with `winget`.
+  - Used `npm.cmd` directly because PowerShell blocks unsigned `npm.ps1` scripts by default.
+- Files changed:
+  - Added `package-lock.json` from `npm install`.
+  - Added `.gitignore` entry for `tsconfig.tsbuildinfo`.
+  - Updated `eslint.config.mjs` to avoid anonymous default export lint warnings.
+  - Typed the Supabase cookie adapter in `src/lib/supabase.ts`.
+  - Added a `postcss` package override to resolve the moderate `npm audit` advisory pulled through Next.js.
+- Tests run:
+  - `npm install`
+  - `npm run typecheck`
+  - `npm run lint`
+  - `npm run build`
+  - `npm audit --audit-level=moderate`
+- Result:
+  - Typecheck, lint, production build, and audit passed locally.
+- Open issues:
+  - Supabase project values still need to be added to `.env.local`.
+  - The initial migration still needs to be applied in Supabase.
