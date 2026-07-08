@@ -58,6 +58,15 @@ Important reference docs:
 - `uncappedgg.md`: implementation log
 - `Components_metaobjects.md`: product/component metadata reference
 
+Important copied Shopify context:
+
+- `Shopify App - Copy/features and changes.md`: source feature/change notes from the Shopify workspace.
+- `Shopify App - Copy/Messenger Bubble/README.md`: Messenger Bubble setup notes.
+- `Shopify App - Copy/Messenger Bubble/sections/ucp-messenger-bubble.liquid`: Messenger Bubble Shopify section implementation.
+- `Shopify App - Copy/PC Builder 2/`: current Shopify PC Builder reference implementation.
+- `Shopify App - Copy/FPS Finder/`: current FPS Finder reference implementation.
+- `Shopify App - Copy/My Builds/`: current My Builds reference implementation.
+
 ## Supabase Setup
 
 The app expects `.env.local`, but that file is intentionally ignored by Git because it contains secrets.
