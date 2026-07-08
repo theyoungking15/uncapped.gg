@@ -1,0 +1,54 @@
+{%- layout none -%}
+
+{%- assign mo = shop.metaobjects['cpu_motherboard_bundle'] -%}
+
+{%- if mo and mo.values -%}
+  {%- paginate mo.values by 250 -%}
+  {
+    "rules": [
+      {%- assign first = true -%}
+      {%- for r in mo.values -%}
+        {%- assign is_active = r.is_active.value -%}
+        {%- if is_active -%}
+          {%- assign cpu_p  = r.cpu_product.value -%}
+          {%- assign cpu_v  = r.cpu_variant.value -%}
+          {%- assign mobo_p = r.motherboard_product.value -%}
+          {%- assign mobo_v = r.motherboard_variant.value -%}
+          {%- if mobo_v == blank -%}
+            {%- assign mobo_v = r.motherboard_varinat.value -%}
+          {%- endif -%}
+
+          {%- if cpu_p != blank and mobo_p != blank -%}
+            {%- assign cpu_handle = cpu_p.metafields.custom.bench_cpu_handle | default: cpu_p.handle | strip | downcase -%}
+            {%- assign mobo_handle = mobo_p.metafields.custom.bench_motherboard_handle | default: mobo_p.handle | strip | downcase -%}
+            {%- assign rule_handle = '' -%}
+            {%- if r.system and r.system.handle -%}
+              {%- assign rule_handle = r.system.handle | strip | downcase -%}
+            {%- endif -%}
+
+            {%- unless first -%},{%- endunless -%}
+            {
+              "handle": {{ rule_handle | json }},
+              "rule_label": {{ r.rule_label.value | default: "" | json }},
+              "sort_order": {{ r.sort_order.value | default: 0 | json }},
+              "discount_amount": {{ r.discount_amount.value | default: 0 | json }},
+
+              "cpu_handle": {{ cpu_handle | json }},
+              "mobo_handle": {{ mobo_handle | json }},
+
+              "cpu_product_id": {{ cpu_p.id | json }},
+              "cpu_variant_id": {%- if cpu_v != blank -%}{{ cpu_v.id | json }}{%- else -%}null{%- endif -%},
+              "mobo_product_id": {{ mobo_p.id | json }},
+              "mobo_variant_id": {%- if mobo_v != blank -%}{{ mobo_v.id | json }}{%- else -%}null{%- endif -%}
+            }
+            {%- assign first = false -%}
+          {%- endif -%}
+        {%- endif -%}
+      {%- endfor -%}
+    ],
+    "next_page": {%- if paginate.current_page < paginate.pages -%}{{ paginate.current_page | plus: 1 }}{%- else -%}null{%- endif -%}
+  }
+  {%- endpaginate -%}
+{%- else -%}
+  {"rules":[],"next_page":null}
+{%- endif -%}

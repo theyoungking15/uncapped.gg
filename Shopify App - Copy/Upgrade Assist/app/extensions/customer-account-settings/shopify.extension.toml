@@ -1,0 +1,14 @@
+# Learn more about configuring your Customer Account UI extension:
+# https://shopify.dev/docs/api/customer-account-ui-extensions/latest
+
+api_version = "2026-01"
+uid = "4efe11fb-932f-13b3-fda9-b08408e0b0dc81041712"
+
+[[extensions]]
+name = "customer-account-settings"
+handle = "customer-account-settings"
+type = "ui_extension"
+
+[[extensions.targeting]]
+module = "./src/ProfileSettingsExtension.jsx"
+target = "customer-account.profile.block.render"

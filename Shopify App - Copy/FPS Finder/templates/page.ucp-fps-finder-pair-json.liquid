@@ -1,0 +1,122 @@
+{%- layout none -%}
+{%- comment -%}
+  FPS Finder pair benchmark feed.
+  This endpoint serves benchmark rows across all enabled games for one exact
+  canonical CPU + GPU benchmark-handle pair so the component-centric runtime
+  can browse games without refetching per-game payloads.
+{%- endcomment -%}
+
+{%- assign BENCHMARK_TYPE = 'benchmark_entry' -%}
+{%- assign benchmark_values = shop.metaobjects[BENCHMARK_TYPE].values | default: blank -%}
+{%- assign requested_cpu_bench = '' -%}
+{%- assign requested_gpu_bench = '' -%}
+{%- capture header_blob -%}{{ content_for_header }}{%- endcapture -%}
+{%- comment -%}
+  Parse the storefront URL from content_for_header because arbitrary query params
+  are not consistently exposed to page templates through Liquid's request object.
+{%- endcomment -%}
+{%- if header_blob contains '"pageurl":"' -%}
+  {%- assign page_url = header_blob | split: '"pageurl":"' | last | split: '"' | first | replace: '\/', '/' | replace: '%20', ' ' | replace: '\u0026', '&' -%}
+  {%- assign page_url_parts = page_url | split: '?' -%}
+  {%- if page_url_parts.size > 1 -%}
+    {%- assign query_string = page_url_parts | last -%}
+    {%- assign query_pairs = query_string | split: '&' -%}
+    {%- for pair in query_pairs -%}
+      {%- assign key = pair | split: '=' | first | strip | downcase -%}
+      {%- assign value = pair | split: '=' | last | strip | downcase -%}
+      {%- if key == 'cpu_bench' or key == 'cpu_bench_handle' -%}
+        {%- assign requested_cpu_bench = value -%}
+      {%- elsif key == 'gpu_bench' or key == 'gpu_bench_handle' -%}
+        {%- assign requested_gpu_bench = value -%}
+      {%- endif -%}
+    {%- endfor -%}
+  {%- endif -%}
+{%- endif -%}
+
+{%- if benchmark_values != blank and requested_cpu_bench != blank and requested_gpu_bench != blank -%}
+  {%- paginate benchmark_values by 250 -%}
+  {%- capture next_url -%}
+    {%- if paginate.next -%}
+      {%- assign next_href = paginate.next.url -%}
+      {%- unless next_href contains 'view=' -%}
+        {%- assign next_href = next_href | append: '&view=ucp-fps-finder-pair-json' -%}
+      {%- endunless -%}
+      {%- unless next_href contains 'cpu_bench=' -%}
+        {%- assign next_href = next_href | append: '&cpu_bench=' | append: requested_cpu_bench -%}
+      {%- endunless -%}
+      {%- unless next_href contains 'gpu_bench=' -%}
+        {%- assign next_href = next_href | append: '&gpu_bench=' | append: requested_gpu_bench -%}
+      {%- endunless -%}
+      {{ next_href }}
+    {%- endif -%}
+  {%- endcapture -%}
+  {
+    "cpu_bench_handle": {{ requested_cpu_bench | json }},
+    "gpu_bench_handle": {{ requested_gpu_bench | json }},
+    "benchmarks": [
+      {%- assign first_benchmark = true -%}
+      {%- for benchmark in benchmark_values -%}
+        {%- assign game_ref = benchmark.game.value -%}
+        {%- assign cpu_product = benchmark.cpu_product.value -%}
+        {%- assign gpu_product = benchmark.gpu_product.value -%}
+        {%- assign game_profile = blank -%}
+        {%- assign game_key = '' -%}
+        {%- if game_ref != blank -%}
+          {%- assign game_key = game_ref.game_handle.value | default: game_ref.handle | strip | downcase -%}
+          {%- assign game_profile = game_ref.fps_profile.value -%}
+        {%- endif -%}
+
+        {%- assign is_enabled = false -%}
+        {%- if game_ref != blank and game_profile != blank and game_ref.fps_finder_enabled != blank and game_ref.fps_finder_enabled.value -%}
+          {%- assign is_enabled = true -%}
+        {%- endif -%}
+
+        {%- comment -%}
+          Benchmark rows are keyed by canonical benchmark handles first. Linked
+          products remain a fallback so older rows still resolve while the live
+          dataset is being normalized.
+        {%- endcomment -%}
+        {%- assign cpu_bench_handle = benchmark.cpu_bench_handle.value | default: benchmark.cpu_handle.value | default: '' | strip | downcase -%}
+        {%- if cpu_bench_handle == blank and cpu_product != blank -%}
+          {%- assign cpu_bench_handle = cpu_product.metafields.custom.bench_cpu_handle.value | default: '' | strip | downcase -%}
+        {%- endif -%}
+
+        {%- assign gpu_bench_handle = benchmark.gpu_bench_handle.value | default: benchmark.gpu_handle.value | default: '' | strip | downcase -%}
+        {%- if gpu_bench_handle == blank and gpu_product != blank -%}
+          {%- assign gpu_bench_handle = gpu_product.metafields.custom.bench_gpu_handle.value | default: '' | strip | downcase -%}
+        {%- endif -%}
+
+        {%- assign resolution = benchmark.resolution.value | default: '' | strip | downcase -%}
+        {%- assign preset = benchmark.preset.value | default: benchmark.presets.value | default: '' | strip | downcase -%}
+        {%- assign avg = benchmark.avg.value | default: benchmark.fps_avg.value | default: benchmark.fps.value -%}
+
+        {%- if is_enabled and game_key != blank and cpu_bench_handle == requested_cpu_bench and gpu_bench_handle == requested_gpu_bench and resolution != blank and avg != blank -%}
+          {%- unless first_benchmark -%},{%- endunless -%}
+          {
+            "key": {{ benchmark.key.value | default: benchmark.handle | default: '' | json }},
+            "game_handle": {{ game_key | json }},
+            "resolution": {{ resolution | json }},
+            "preset": {{ preset | json }},
+            "cpu_bench_handle": {{ cpu_bench_handle | json }},
+            "gpu_bench_handle": {{ gpu_bench_handle | json }},
+            "fps_low": {% if benchmark.fps_low.value != blank %}{{ benchmark.fps_low.value | plus: 0 | json }}{% else %}null{% endif %},
+            "fps_high": {% if benchmark.fps_high.value != blank %}{{ benchmark.fps_high.value | plus: 0 | json }}{% else %}null{% endif %},
+            "avg": {{ avg | plus: 0 | json }}
+          }
+          {%- assign first_benchmark = false -%}
+        {%- endif -%}
+      {%- endfor -%}
+    ],
+    "next_page": {% if paginate.current_page < paginate.pages %}{{ paginate.current_page | plus: 1 | json }}{% else %}null{% endif %},
+    "next_url": {% if next_url != blank %}{{ next_url | strip | json }}{% else %}null{% endif %}
+  }
+  {%- endpaginate -%}
+{%- else -%}
+  {
+    "cpu_bench_handle": {{ requested_cpu_bench | json }},
+    "gpu_bench_handle": {{ requested_gpu_bench | json }},
+    "benchmarks": [],
+    "next_page": null,
+    "next_url": null
+  }
+{%- endif -%}

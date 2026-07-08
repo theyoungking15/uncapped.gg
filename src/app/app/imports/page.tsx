@@ -13,8 +13,8 @@ export default async function ImportsPage() {
     <>
       <header className="pageHead">
         <div>
-          <h1>Google Sheets import</h1>
-          <p>Paste a published CSV URL to import or update products. Rows with matching SKU are updated.</p>
+          <h1>Product import</h1>
+          <p>Paste a published CSV URL or upload a Shopify CSV export. Rows with matching SKU or handle are updated.</p>
         </div>
       </header>
       <section className="panel">
@@ -25,6 +25,7 @@ export default async function ImportsPage() {
           <thead>
             <tr>
               <th>Date</th>
+              <th>Source</th>
               <th>Status</th>
               <th>Rows</th>
               <th>Imported</th>
@@ -35,6 +36,22 @@ export default async function ImportsPage() {
             {imports.map((item) => (
               <tr key={item.id}>
                 <td>{formatDateTime(item.created_at)}</td>
+                <td>
+                  {item.source_type}
+                  <div className="muted">{item.source_url}</div>
+                  {item.error_report?.length ? (
+                    <details className="importIssues">
+                      <summary>{item.error_report.length} issue(s)</summary>
+                      <ul>
+                        {item.error_report.slice(0, 8).map((issue) => (
+                          <li key={`${item.id}:${issue.row}:${issue.reason}`}>
+                            Row {issue.row}: {issue.reason}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  ) : null}
+                </td>
                 <td>{item.status}</td>
                 <td>{item.total_rows}</td>
                 <td>{item.imported_rows}</td>
@@ -43,7 +60,7 @@ export default async function ImportsPage() {
             ))}
             {!imports.length ? (
               <tr>
-                <td colSpan={5} className="muted">
+                <td colSpan={6} className="muted">
                   No imports yet.
                 </td>
               </tr>
@@ -54,4 +71,3 @@ export default async function ImportsPage() {
     </>
   );
 }
-

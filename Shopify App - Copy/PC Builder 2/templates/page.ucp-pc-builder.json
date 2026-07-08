@@ -1,0 +1,31 @@
+/*
+ * ------------------------------------------------------------
+ * IMPORTANT: The contents of this file are auto-generated.
+ *
+ * This file may be updated by the Shopify admin theme editor
+ * or related systems. Please exercise caution as any changes
+ * made to this file may be overwritten.
+ * ------------------------------------------------------------
+ */
+{
+  "sections": {
+    "builder": {
+      "type": "ucp-pc-builder",
+      "settings": {
+        "cpu_collection": "cpu",
+        "motherboards_collection": "motherboards",
+        "gpu_collection": "graphics-card",
+        "ram_collection": "ram",
+        "ssd_collection": "ssd",
+        "case_collection": "case",
+        "psu_collection": "power-supply",
+        "cooler_collection": "cpu-cooler",
+        "ups_collection": "peripherals",
+        "default_tab": "processor"
+      }
+    }
+  },
+  "order": [
+    "builder"
+  ]
+}

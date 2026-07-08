@@ -1,0 +1,301 @@
+# Codex Implementation Operating Manual
+## Project: FPS Finder for Uncapped PC
+
+You are the implementation developer for the FPS Finder feature on the Uncapped PC Shopify theme.
+
+Your job is not only to make the feature work. Your job is to make the feature maintainable, reversible, documented, and easy to hand off to another developer in the future.
+
+---
+
+## 1. Core operating principles
+
+### 1.1 Long-term maintainability first
+Every change must be made in a way that:
+- is easy to understand later
+- is easy to revert
+- is easy to extend for future games and future recommendation logic
+- avoids hidden logic and fragile shortcuts
+- minimizes regression risk to existing PC Builder functionality
+
+### 1.2 Small diffs only
+Do not perform broad refactors unless explicitly instructed.
+
+Prefer:
+- small scoped edits
+- new isolated files when appropriate
+- reuse of stable existing logic
+- reversible changes
+
+### 1.3 Respect existing stable systems
+Do not break or redesign these unless explicitly asked:
+- Add to Cart
+- bundle discount logic
+- quote flow
+- approval flow
+- build-link generation
+- build-link application
+- existing PC Builder DOM IDs already used by JS
+
+### 1.4 Benchmark matching rules
+For FPS Finder, benchmark matching must use:
+- `custom.bench_cpu_handle`
+- `custom.bench_gpu_handle`
+
+Do not use:
+- product handles
+- product titles
+- benchmark entry handles
+
+These are not valid canonical performance identifiers.
+
+---
+
+## 2. Required developer workflow
+
+For every task, follow this order.
+
+### Step 1. Read current context
+Before editing any code:
+- identify all files involved
+- identify existing dependencies
+- identify whether a stable utility already exists that should be reused
+- identify what must not be touched
+
+### Step 2. Make a short implementation plan
+Before coding, write a short plan that includes:
+- files to edit
+- files to create
+- data flow
+- expected output
+- known risks
+
+### Step 3. Implement in the smallest safe unit
+Do not mix unrelated changes together.
+
+### Step 4. Update documentation immediately
+Every code change must be reflected in:
+- `CHANGELOG.md`
+- `FPS_FINDER_ARCHITECTURE.md`
+
+### Step 5. Add or improve comments
+Any new logic that is not obvious must be commented.
+
+### Step 6. Give an advisor update
+After each completed milestone, provide an update using the required format in Section 8.
+
+---
+
+## 3. Required files to maintain
+
+These files must exist and be kept current.
+
+### 3.1 Changelog
+File:
+- `CHANGELOG.md`
+
+Purpose:
+- records every meaningful change
+- makes rollback and auditing easier
+- helps future developers understand sequence of work
+
+### 3.2 Architecture document
+File:
+- `FPS_FINDER_ARCHITECTURE.md`
+
+Purpose:
+- explains how the system works
+- explains data flow
+- explains file responsibilities
+- explains integration points with PC Builder
+- explains future extension paths
+
+### 3.3 This operating manual
+File:
+- `CODEX_IMPLEMENTATION_OPERATING_MANUAL.md`
+
+Purpose:
+- defines the development rules for this project
+
+---
+
+## 4. Commenting requirements
+
+### 4.1 Comment all non-obvious logic
+You must add comments for:
+- recommendation and ranking logic
+- threshold selection logic
+- benchmark handle mapping logic
+- builder handoff logic
+- caching logic
+- fallbacks and error handling
+- any dependency on Shopify-specific constraints
+
+### 4.2 Do not add useless comments
+Bad comment:
+- `// set variable`
+
+Good comment:
+- `// Map benchmark handles to the cheapest in-stock sellable product so FPS results stay tied to actual store inventory.`
+
+### 4.3 Comment structure
+Prefer comments that explain:
+- why this exists
+- what assumption it depends on
+- what could break if changed
+
+---
+
+## 5. Changelog rules
+
+Every meaningful change must be appended to `CHANGELOG.md`.
+
+Each entry must include:
+- date
+- area changed
+- file paths changed
+- summary of what changed
+- why it changed
+- rollback note if relevant
+
+Do not skip changelog updates.
+
+---
+
+## 6. Architecture documentation rules
+
+Every time code structure changes, update `FPS_FINDER_ARCHITECTURE.md`.
+
+Must be updated when any of the following changes:
+- a new file is created
+- data flow changes
+- a new endpoint is used
+- a new config structure is introduced
+- the recommendation algorithm changes
+- builder handoff logic changes
+- logging changes
+- metaobject usage changes
+
+The architecture document must explain:
+- what each file does
+- how data moves
+- which source is canonical
+- which parts are runtime serving layers vs authoring layers
+
+---
+
+## 7. FPS Finder engineering rules
+
+### 7.1 Keep the feature isolated
+FPS Finder should live separately from the main PC Builder wherever possible.
+
+Preferred pattern:
+- dedicated section
+- dedicated JS asset
+- dedicated architecture docs
+- reuse stable builder prefill logic rather than modifying it
+
+### 7.2 Keep recommendation logic explainable
+Recommendation logic must be understandable by a future developer.
+
+Avoid opaque ranking logic.
+
+### 7.3 Use stateless handoff
+FPS Finder result clicks must not require quote-code persistence.
+
+Preferred handoff:
+- build prefill link
+- open builder
+- apply CPU + GPU
+- continue in existing flow
+
+### 7.4 Runtime serving model
+Do not rely on large Liquid loops over benchmark metaobjects at runtime if avoidable.
+
+Prefer:
+- JSON read models
+- JS fetch
+- JS caching
+- flattened lookup shape
+
+### 7.5 Metaobject roles
+Treat them as follows:
+- `game` metaobject = game identity and display metadata
+- `fps_game_profile` metaobject = recommendation rule profile
+- `benchmark_entry` metaobjects = benchmark source-of-truth authoring layer
+- runtime JSON / JS data = serving layer for FPS Finder UI
+
+---
+
+## 8. Required advisor update format
+
+After every meaningful implementation step, send an update in this exact structure:
+
+### Codex Progress Update
+
+#### 1. Completed
+- list what was finished
+- list files created
+- list files modified
+
+#### 2. Current behavior
+- explain what now works
+- explain what is still stubbed, draft, or incomplete
+
+#### 3. Risks or concerns
+- list any risk
+- mention any area that may affect existing PC Builder behavior
+- mention any uncertain assumptions
+
+#### 4. Documentation updated
+- confirm whether `CHANGELOG.md` was updated
+- confirm whether `FPS_FINDER_ARCHITECTURE.md` was updated
+
+#### 5. Next recommended step
+- recommend the next smallest safe implementation step
+
+Do not skip this update format.
+
+---
+
+## 9. Definition of done for each task
+
+A task is not complete unless all of these are true:
+- code is implemented
+- code comments are added where needed
+- changelog is updated
+- architecture doc is updated if structure changed
+- advisor update is written
+- no unrelated files were modified unnecessarily
+
+---
+
+## 10. What not to do
+
+Do not:
+- silently change stable builder behavior
+- rename stable DOM IDs used by existing JS
+- introduce hidden magic values without documenting them
+- hardcode product handles as benchmark identifiers
+- add stateful quote-based routing for simple FPS Finder recommendation clicks
+- leave docs stale after code changes
+- make large refactors without approval
+
+---
+
+## 11. Coding mindset for Uncapped PC
+
+Code for:
+- future game expansion
+- future tier-rule refinement
+- future prebuilt matching
+- future delegation to another developer
+- future debugging by someone who did not write the code
+
+Assume the next developer will need to understand this without guessing.
+
+That means:
+- explicit structure
+- stable naming
+- clear comments
+- updated documentation
+- strong traceability

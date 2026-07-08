@@ -1,0 +1,1334 @@
+{%- comment -%}
+  File: sections/ucp-pc-builder.liquid
+
+  Section: UCP PC Builder (Path 2)
+  - Loads products per tab via collection JSON "view" endpoint
+  - Avoids embedding huge JSON blobs in the page
+  - Bundle rules JSON: fetch all rules via a page view endpoint to avoid the 50 metaobject cap
+
+  Mobile UX notes:
+  - On mobile, the summary is moved to the bottom (via CSS ordering).
+  - A sticky bottom bar provides constant access to the build summary and actions.
+  - The summary can be opened as a bottom drawer for easy access on long lists.
+{%- endcomment -%}
+
+{{ 'ucp-pc-builder.css' | asset_url | stylesheet_tag }}
+
+{%- liquid
+  assign cpu_col      = section.settings.cpu_collection
+  assign mobo_col     = section.settings.motherboards_collection
+  assign gpu_col      = section.settings.gpu_collection
+  assign ram_col      = section.settings.ram_collection
+  assign ssd_col      = section.settings.ssd_collection
+  assign case_col     = section.settings.case_collection
+  assign psu_col      = section.settings.psu_collection
+  assign cooler_col   = section.settings.cooler_collection
+  assign casefans_col = section.settings.case_fans_collection
+  assign other_col    = section.settings.ups_collection
+
+  assign default_tab = section.settings.default_tab | default: 'processor'
+
+  capture ep_cpu
+    if cpu_col != blank
+      echo cpu_col.url | append: '?view=ucp-pc-builder-json'
+    else
+      echo ''
+    endif
+  endcapture
+
+  capture ep_mobo
+    if mobo_col != blank
+      echo mobo_col.url | append: '?view=ucp-pc-builder-json'
+    else
+      echo ''
+    endif
+  endcapture
+
+  capture ep_gpu
+    if gpu_col != blank
+      echo gpu_col.url | append: '?view=ucp-pc-builder-json'
+    else
+      echo ''
+    endif
+  endcapture
+
+  capture ep_ram
+    if ram_col != blank
+      echo ram_col.url | append: '?view=ucp-pc-builder-json'
+    else
+      echo ''
+    endif
+  endcapture
+
+  capture ep_ssd
+    if ssd_col != blank
+      echo ssd_col.url | append: '?view=ucp-pc-builder-json'
+    else
+      echo ''
+    endif
+  endcapture
+
+  capture ep_case
+    if case_col != blank
+      echo case_col.url | append: '?view=ucp-pc-builder-json'
+    else
+      echo ''
+    endif
+  endcapture
+
+  capture ep_psu
+    if psu_col != blank
+      echo psu_col.url | append: '?view=ucp-pc-builder-json'
+    else
+      echo ''
+    endif
+  endcapture
+
+  capture ep_cooler
+    if cooler_col != blank
+      echo cooler_col.url | append: '?view=ucp-pc-builder-json'
+    else
+      echo ''
+    endif
+  endcapture
+
+  capture ep_casefans
+    if casefans_col != blank
+      echo casefans_col.url | append: '?view=ucp-pc-builder-json'
+    else
+      echo ''
+    endif
+  endcapture
+
+  capture ep_other
+    if other_col != blank
+      echo other_col.url | append: '?view=ucp-pc-builder-json'
+    else
+      echo ''
+    endif
+  endcapture
+
+  comment
+    Brand logo source (priority order):
+    1) metaobject: brand.uncapped
+    2) Shopify brand logo
+    3) theme setting logo
+  endcomment
+
+  assign brand_mo = shop.metaobjects.brand['uncapped']
+  assign brand_logo_media = blank
+
+  if brand_mo != blank
+    if brand_mo.logo != blank
+      assign brand_logo_media = brand_mo.logo.value
+    elsif brand_mo.image != blank
+      assign brand_logo_media = brand_mo.image.value
+    elsif brand_mo.brand_logo != blank
+      assign brand_logo_media = brand_mo.brand_logo.value
+    endif
+  endif
+
+  capture brand_logo_url
+    if brand_logo_media != blank
+      echo brand_logo_media | image_url: width: 240
+    elsif shop.brand.logo != blank
+      echo shop.brand.logo | image_url: width: 240
+    elsif settings.logo != blank
+      echo settings.logo | image_url: width: 240
+    else
+      echo ''
+    endif
+  endcapture
+
+  comment
+    Bundle rules metaobject fallback (still capped at 50 when looping values).
+    We keep this only as a fallback if the JSON endpoint fails.
+  endcomment
+
+  assign rule_mo = shop.metaobjects['cpu_motherboard_bundle']
+  assign rules = blank
+  if rule_mo and rule_mo.values
+    assign rules = rule_mo.values
+  endif
+
+  assign bundle_rules_endpoint = '/pages/ucp-pcb-bundle-rules?view=ucp-pcb-bundle-rules-json'
+
+  assign promo_mo = shop.metaobjects['pc_builder_promo']
+  assign promos = blank
+  if promo_mo and promo_mo.values
+    assign promos = promo_mo.values
+  endif
+
+  assign promo_rules_endpoint = '/pages/ucp-pcb-promos?view=ucp-pcb-promos-json'
+
+  assign addon_mo = shop.metaobjects['pc_builder_addon_discount']
+  assign addon_promos = blank
+  if addon_mo and addon_mo.values
+    assign addon_promos = addon_mo.values
+  endif
+
+  assign addon_discount_rules_endpoint = '/pages/ucp-pcb-addon-discounts?view=ucp-pcb-addon-discounts-json'
+
+  assign onboard_b1 = section.settings.onboarding_bullet_1 | strip
+  assign onboard_b2 = section.settings.onboarding_bullet_2 | strip
+  assign onboard_b3 = section.settings.onboarding_bullet_3 | strip
+
+  assign onboard_gif_src = blank
+  if section.settings.onboarding_gif_image != blank
+    assign onboard_gif_src = section.settings.onboarding_gif_image | image_url: width: 720
+  elsif section.settings.onboarding_gif_url != blank
+    assign onboard_gif_src = section.settings.onboarding_gif_url | strip
+  endif
+-%}
+
+<section class="ucp-pcb" data-ucp-pcb data-default-tab="{{ default_tab | escape }}">
+  <script type="application/json" id="ucp-pcb-config">
+  {
+    "brand_logo": {{ brand_logo_url | strip | json }},
+    "quote_screenshot_mode": {{ section.settings.quote_screenshot_mode | json }},
+    "quote_screenshot_mode_mobile": {{ section.settings.quote_screenshot_mode_mobile | default: 'same_as_desktop' | json }},
+    "quote_font_preset": {{ section.settings.quote_font_preset | default: 'inter_roboto' | json }},
+
+    "bundle_rules_endpoint": {{ bundle_rules_endpoint | json }},
+    "promo_rules_endpoint": {{ promo_rules_endpoint | json }},
+    "addon_discount_rules_endpoint": {{ addon_discount_rules_endpoint | json }},
+
+    "messenger_url": {{ 'https://www.facebook.com/UncappedPC' | json }},
+    "apps_script_webapp_url": {{ 'https://script.google.com/macros/s/AKfycbysHP_LKSCNjTczUQZr0OT5pMY37htXnWk_MowJ9mRTqTeCA9Gy49JprHDbkWOCYM-2/exec' | json }},
+    "quote_contact_endpoint": "/contact",
+    "my_builds_proxy_base_path": {{ section.settings.my_builds_proxy_base_path | json }},
+    "my_builds_page_url": {{ section.settings.my_builds_page_url | json }},
+    "loading_modals": {
+      "promo": {{ section.settings.promo_loading_modal_enabled | json }},
+      "quote": {{ section.settings.quote_loading_modal_enabled | json }},
+      "build": true,
+      "approval": {{ section.settings.approval_loading_modal_enabled | json }}
+    },
+    "customer": {% if customer %}
+      {
+        "id": {{ customer.id | json }},
+        "email": {{ customer.email | json }},
+        "first_name": {{ customer.first_name | json }},
+        "last_name": {{ customer.last_name | json }}
+      }
+    {% else %}
+      null
+    {% endif %},
+
+    "payment": {
+      "enabled": {{ section.settings.approval_payment_enabled | json }},
+      "proof_mode": {{ section.settings.payment_proof_mode | json }},
+      "messenger_username": {{ section.settings.payment_messenger_username | json }},
+      "facebook_page_url": {{ section.settings.payment_facebook_page_url | json }},
+      "proof_text": {{ section.settings.payment_proof_text | json }},
+      "methods": [
+        {%- assign pm_first = true -%}
+        {%- for block in section.blocks -%}
+          {%- if block.type == 'payment_method' -%}
+            {%- unless pm_first -%},{%- endunless -%}
+            {
+              "id": {{ block.settings.method_id | strip | json }},
+              "label": {{ block.settings.method_label | strip | json }},
+              "logo": {%- if block.settings.method_logo != blank -%}{{ block.settings.method_logo | image_url: width: 200 | json }}{%- else -%}null{%- endif -%},
+              "qr": {%- if block.settings.method_qr != blank -%}{{ block.settings.method_qr | image_url: width: 360 | json }}{%- else -%}null{%- endif -%},
+              "account_name": {{ block.settings.account_name | strip | json }},
+              "account_number": {{ block.settings.account_number | strip | json }}
+            }
+            {%- assign pm_first = false -%}
+          {%- endif -%}
+        {%- endfor -%}
+      ]
+    },
+
+    "storefront_api_version": "2024-10",
+    "storefront_token": "",
+
+    "perf_preview_endpoint": "",
+    "perf_storefront_token": "",
+    "perf_metaobject_type": "benchmark_entry",
+    "perf_preview_enabled": {{ section.settings.pcb_perf_enabled | json }},
+
+    "payment_mobile_qr_download_enabled": {{ section.settings.payment_mobile_qr_download_enabled | json }},
+    "payment_mobile_pdf_mode": {{ section.settings.payment_mobile_pdf_mode | json }},
+    "approval_strip_param_on_close": {{ section.settings.approval_strip_param_on_close | json }},
+    "approval_reopen_button_enabled": {{ section.settings.approval_reopen_button_enabled | json }},
+    "onboarding_enabled": {{ section.settings.onboarding_enabled | json }},
+    "onboarding_title": {{ section.settings.onboarding_title | json }},
+    "onboarding_bullets": [
+      {%- if onboard_b1 != blank -%}{{ onboard_b1 | json }}{%- endif -%}
+      {%- if onboard_b1 != blank and onboard_b2 != blank -%},{{ onboard_b2 | json }}{%- elsif onboard_b1 == blank and onboard_b2 != blank -%}{{ onboard_b2 | json }}{%- endif -%}
+      {%- if onboard_b3 != blank -%}{%- if onboard_b1 != blank or onboard_b2 != blank -%},{{ onboard_b3 | json }}{%- else -%}{{ onboard_b3 | json }}{%- endif -%}{%- endif -%}
+    ],
+    "onboarding_show_try_share": {{ section.settings.onboarding_show_try_share | json }},
+    "onboarding_got_it_label": {{ section.settings.onboarding_got_it_label | json }},
+    "onboarding_try_share_label": {{ section.settings.onboarding_try_share_label | json }},
+    "onboarding_gif_enabled": {{ section.settings.onboarding_gif_enabled | json }},
+    "onboarding_gif_mode": {{ section.settings.onboarding_gif_mode | json }},
+    "onboarding_gif_src": {{ onboard_gif_src | json }},
+    "onboarding_view_demo_label": {{ section.settings.onboarding_view_demo_label | json }},
+    "promo_discovery_modal_enabled": {{ section.settings.promo_discovery_modal_enabled | json }},
+    "promo_discovery_visibility_mode": {{ section.settings.promo_discovery_visibility_mode | default: 'cooldown' | json }},
+    "promo_discovery_cooldown_days": {{ section.settings.promo_discovery_cooldown_days | default: 7 | json }},
+    "hints_enabled": {{ section.settings.hints_enabled | json }},
+    "hint_share_text": {{ section.settings.hint_share_text | json }},
+    "hint_quote_text": {{ section.settings.hint_quote_text | json }},
+    "availability_filter_enabled": {{ section.settings.availability_filter_enabled | json }},
+    "availability_filter_default_on": {{ section.settings.availability_filter_default_on | json }},
+    "payment_methods": [
+      {%- assign pm_mobile_first = true -%}
+      {%- for block in section.blocks -%}
+        {%- if block.type == 'payment_method' -%}
+          {%- unless pm_mobile_first -%},{%- endunless -%}
+          {
+            "id": {{ block.settings.method_id | strip | json }},
+            "name": {{ block.settings.method_label | strip | json }},
+            "logo": {%- if block.settings.method_logo != blank -%}{{ block.settings.method_logo | image_url: width: 200 | json }}{%- else -%}null{%- endif -%},
+            "qr": {%- if block.settings.method_qr != blank -%}{{ block.settings.method_qr | image_url: width: 360 | json }}{%- else -%}null{%- endif -%},
+            "account_name": {{ block.settings.account_name | strip | json }},
+            "account_number": {{ block.settings.account_number | strip | json }}
+          }
+          {%- assign pm_mobile_first = false -%}
+        {%- endif -%}
+      {%- endfor -%}
+    ],
+
+    "endpoints": {
+      "processor": {{ ep_cpu | strip | json }},
+      "motherboard": {{ ep_mobo | strip | json }},
+      "gpu": {{ ep_gpu | strip | json }},
+      "memory": {{ ep_ram | strip | json }},
+      "ssd": {{ ep_ssd | strip | json }},
+      "case": {{ ep_case | strip | json }},
+      "powersupply": {{ ep_psu | strip | json }},
+      "cpucooler": {{ ep_cooler | strip | json }},
+      "casefans": {{ ep_casefans | strip | json }},
+      "other": {{ ep_other | strip | json }}
+    }
+  }
+  </script>
+
+  <script type="application/json" id="ucp-pcb-bundle-rules">
+  [
+    {%- assign first = true -%}
+    {%- if rules != blank -%}
+      {%- for r in rules -%}
+        {%- assign is_active = r.is_active.value -%}
+        {%- if is_active -%}
+          {%- assign cpu_p = r.cpu_product.value -%}
+          {%- assign cpu_v = r.cpu_variant.value -%}
+          {%- assign mobo_p = r.motherboard_product.value -%}
+          {%- assign mobo_v = r.motherboard_variant.value -%}
+          {%- if mobo_v == blank -%}
+            {%- assign mobo_v = r.motherboard_varinat.value -%}
+          {%- endif -%}
+
+          {%- if cpu_p != blank and mobo_p != blank -%}
+            {%- assign cpu_handle = cpu_p.metafields.custom.bench_cpu_handle | default: cpu_p.handle | strip | downcase -%}
+            {%- assign mobo_handle = mobo_p.metafields.custom.bench_motherboard_handle | default: mobo_p.handle | strip | downcase -%}
+            {%- assign rule_handle = '' -%}
+            {%- if r.system and r.system.handle -%}
+              {%- assign rule_handle = r.system.handle | strip | downcase -%}
+            {%- endif -%}
+
+            {%- unless first -%},{%- endunless -%}
+            {
+              "handle": {{ rule_handle | json }},
+              "rule_label": {{ r.rule_label.value | default: '' | json }},
+              "sort_order": {{ r.sort_order.value | default: 0 | json }},
+              "discount_amount": {{ r.discount_amount.value | default: 0 | json }},
+
+              "cpu_handle": {{ cpu_handle | json }},
+              "mobo_handle": {{ mobo_handle | json }},
+
+              "cpu_product_id": {{ cpu_p.id | json }},
+              "cpu_variant_id": {% if cpu_v != blank %}{{ cpu_v.id | json }}{% else %}null{% endif %},
+              "mobo_product_id": {{ mobo_p.id | json }},
+              "mobo_variant_id": {% if mobo_v != blank %}{{ mobo_v.id | json }}{% else %}null{% endif %}
+            }
+            {%- assign first = false -%}
+          {%- endif -%}
+        {%- endif -%}
+      {%- endfor -%}
+    {%- endif -%}
+  ]
+  </script>
+
+  <script type="application/json" id="ucp-pcb-promo-rules">
+  [
+    {%- assign promo_first = true -%}
+    {%- if promos != blank -%}
+      {%- for p in promos -%}
+        {%- assign is_active = p.is_active.value -%}
+        {%- if is_active -%}
+          {%- assign promo_handle = '' -%}
+          {%- if p.system and p.system.handle -%}
+            {%- assign promo_handle = p.system.handle | strip | downcase -%}
+          {%- endif -%}
+          {%- assign promo_image = p.image.value -%}
+
+          {%- unless promo_first -%},{%- endunless -%}
+          {
+            "handle": {{ promo_handle | json }},
+            "promo_label": {{ p.promo_label.value | default: '' | json }},
+            "is_active": {{ p.is_active.value | default: false | json }},
+            "discount_amount": {{ p.discount_amount.value | default: 0 | json }},
+            "stack_with_bundle_discount": {{ p.stack_with_bundle_discount.value | default: false | json }},
+            "required_components": {%- if p.required_components.value != blank -%}{{ p.required_components.value | json }}{%- else -%}[]{%- endif -%},
+            "badge_label": {{ p.badge_label.value | default: '' | json }},
+            "description": {{ p.description.value | default: '' | json }},
+            "terms": {{ p.terms.value | default: '' | json }},
+            "starts_at": {{ p.starts_at.value | default: '' | json }},
+            "ends_at": {{ p.ends_at.value | default: '' | json }},
+            "priority": {{ p.priority.value | default: 0 | json }},
+            "public_visibility": {{ p.public_visibility.value | default: false | json }},
+            "image_url": {%- if promo_image != blank -%}{{ promo_image | image_url: width: 720 | json }}{%- else -%}""{%- endif -%}
+          }
+          {%- assign promo_first = false -%}
+        {%- endif -%}
+      {%- endfor -%}
+    {%- endif -%}
+  ]
+  </script>
+
+  <script type="application/json" id="ucp-pcb-addon-rules">
+  [
+    {%- assign addon_first = true -%}
+    {%- if addon_promos != blank -%}
+      {%- for p in addon_promos -%}
+        {%- assign is_active = p.is_active.value -%}
+        {%- if is_active -%}
+          {%- assign addon_handle = '' -%}
+          {%- if p.system and p.system.handle -%}
+            {%- assign addon_handle = p.system.handle | strip | downcase -%}
+          {%- endif -%}
+
+          {%- unless addon_first -%},{%- endunless -%}
+          {
+            "handle": {{ addon_handle | json }},
+            "promo_label": {{ p.promo_label.value | default: '' | json }},
+            "is_active": {{ p.is_active.value | default: false | json }},
+            "unlock_on_bundle_discount": {{ p.unlock_on_bundle_discount.value | default: false | json }},
+            "unlock_on_any_primary_promo": {{ p.unlock_on_any_primary_promo.value | default: false | json }},
+            "qualifying_promo_handles": {%- if p.qualifying_promo_handles.value != blank -%}{{ p.qualifying_promo_handles.value | json }}{%- else -%}[]{%- endif -%},
+            "bulk_unlock_enabled": {{ p.bulk_unlock_enabled.value | default: false | json }},
+            "bulk_qualifying_tabs": {%- if p.bulk_qualifying_tabs.value != blank -%}{{ p.bulk_qualifying_tabs.value | json }}{%- else -%}[]{%- endif -%},
+            "bulk_min_qualifying_tabs": {{ p.bulk_min_qualifying_tabs.value | default: 0 | json }},
+            "stack_with_bundle_discount": {{ p.stack_with_bundle_discount.value | default: true | json }},
+            "stack_with_primary_promo": {{ p.stack_with_primary_promo.value | default: true | json }},
+            "discounted_targets": {%- if p.discounted_targets.value != blank -%}{{ p.discounted_targets.value | json }}{%- else -%}[]{%- endif -%},
+            "badge_label": {{ p.badge_label.value | default: '' | json }},
+            "description": {{ p.description.value | default: '' | json }},
+            "starts_at": {{ p.starts_at.value | default: '' | json }},
+            "ends_at": {{ p.ends_at.value | default: '' | json }},
+            "priority": {{ p.priority.value | default: 0 | json }},
+            "internal_note": {{ p.internal_note.value | default: '' | json }}
+          }
+          {%- assign addon_first = false -%}
+        {%- endif -%}
+      {%- endfor -%}
+    {%- endif -%}
+  ]
+  </script>
+
+  {%- comment -%}
+    MVP FPS Benchmarks.
+    Keys should match what JS will set for CPU and GPU.
+    Recommended keys: custom.bench_cpu_handle and custom.bench_gpu_handle.
+    Expand this list over time. Keep it small for MVP.
+  {%- endcomment -%}
+  <script id="ucp-pcb-benchmarks" type="application/json">
+  {
+    "version": 1,
+    "defaultGame": "default",
+    "entries": [
+      { "game": "default", "cpu": "ryzen-5-7600x", "gpu": "rtx-5070-ti", "res": "1080p", "preset": "low",  "fps": 260 },
+      { "game": "default", "cpu": "ryzen-5-7600x", "gpu": "rtx-5070-ti", "res": "1440p", "preset": "low", "fps": 220 },
+      { "game": "default", "cpu": "ryzen-5-7600x", "gpu": "rtx-5070-ti", "res": "4k",    "preset": "low", "fps": 150 },
+
+      { "game": "default", "cpu": "ryzen-5-7600x", "gpu": "rtx-5070-ti", "res": "1080p", "preset": "med",  "fps": 240 },
+      { "game": "default", "cpu": "ryzen-5-7600x", "gpu": "rtx-5070-ti", "res": "1440p", "preset": "med",  "fps": 205 },
+      { "game": "default", "cpu": "ryzen-5-7600x", "gpu": "rtx-5070-ti", "res": "4k",    "preset": "med",  "fps": 140 },
+
+      { "game": "default", "cpu": "ryzen-5-7600x", "gpu": "rtx-5070-ti", "res": "1080p", "preset": "high", "fps": 210 },
+      { "game": "default", "cpu": "ryzen-5-7600x", "gpu": "rtx-5070-ti", "res": "1440p", "preset": "high", "fps": 180 },
+      { "game": "default", "cpu": "ryzen-5-7600x", "gpu": "rtx-5070-ti", "res": "4k",    "preset": "high", "fps": 120 }
+    ]
+  }
+  </script>
+
+  <div class="ucp-pcb__wrap">
+    <aside class="ucp-pcb__summary">
+      <div class="ucp-pcb__summaryCard">
+        {%- comment -%}
+          Mobile drawer close button.
+          Hidden on desktop. Shown only when the drawer is open on mobile.
+        {%- endcomment -%}
+        <button class="ucp-pcb__drawerClose" type="button" id="ucp-pcb-summary-close" aria-label="Close build summary">
+          Close
+        </button>
+
+        <div class="ucp-pcb__summaryTitle">Build summary</div>
+
+        <div class="ucp-pcb__picked" id="ucp-pcb-picked"></div>
+
+        {%- comment -%}
+          MVP Performance Preview UI.
+          JS will populate CPU and GPU context and FPS values.
+          Data hooks:
+          - [data-ucp-pcb-preset]
+          - [data-ucp-pcb-fps]
+        {%- endcomment -%}
+        <div class="ucp-pcb__perfCard" id="ucp-pcb-perf" {% unless section.settings.pcb_perf_enabled %}hidden{% endunless %}>
+          <div class="ucp-pcb__perfHead">
+            <div class="ucp-pcb__perfTitle" id="ucp-pcb-perf-title">Performance preview</div>
+            <div class="ucp-pcb__perfSub" id="ucp-pcb-perf-sub">Select a CPU and GPU</div>
+          </div>
+
+          <div class="ucp-pcb__perfControls">
+            <div class="ucp-pcb__perfControl">
+              <div class="ucp-pcb__perfLabel">Preset</div>
+              <div class="ucp-pcb__perfPills" aria-label="Preset">
+                <button type="button" class="ucp-pcb__pill" data-ucp-pcb-preset="low">LOW</button>
+                <button type="button" class="ucp-pcb__pill" data-ucp-pcb-preset="med" data-active>MED</button>
+                <button type="button" class="ucp-pcb__pill" data-ucp-pcb-preset="high">HIGH</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="ucp-pcb__perfFps" aria-label="FPS">
+            <div class="ucp-pcb__perfFpsCell">
+              <small>1080P</small>
+              <strong data-ucp-pcb-fps="1080p">N/A</strong>
+            </div>
+            <div class="ucp-pcb__perfFpsCell">
+              <small>1440P</small>
+              <strong data-ucp-pcb-fps="1440p">N/A</strong>
+            </div>
+            <div class="ucp-pcb__perfFpsCell">
+              <small>4K</small>
+              <strong data-ucp-pcb-fps="4k">N/A</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="ucp-pcb__summaryDockSource" data-ucp-pcb-dock-source>
+        <div class="ucp-pcb__totals">
+          <div class="ucp-pcb__totalsRow">
+            <span>Subtotal</span>
+            <strong id="ucp-pcb-subtotal-raw">₱0</strong>
+          </div>
+          <div class="ucp-pcb__totalsRow">
+            <span>Bundle discount</span>
+            <strong id="ucp-pcb-savings">₱0</strong>
+          </div>
+          <div class="ucp-pcb__totalsRow" data-ucp-pcb-promo-row hidden>
+            <span id="ucp-pcb-promo-label">Promo discount</span>
+            <strong id="ucp-pcb-promo-savings">₱0</strong>
+          </div>
+          <div data-ucp-pcb-addon-rows hidden></div>
+          <div class="ucp-pcb__totalsRow" data-ucp-pcb-manual-off-row hidden>
+            <span>Additional discount</span>
+            <strong id="ucp-pcb-manual-off">₱0</strong>
+          </div>
+          <div class="ucp-pcb__totalsRow ucp-pcb__totalsRow--grand">
+            <span>Payable subtotal</span>
+            <strong id="ucp-pcb-subtotal">₱0</strong>
+          </div>
+        </div>
+
+        <div class="ucp-pcb__actions">
+          <button class="ucp-pcb__btn" type="button" id="ucp-pcb-remove-all">Remove all</button>
+          <div class="ucp-pcb__actionWithHint">
+            <button class="ucp-pcb__btn" type="button" id="ucp-pcb-share">Share</button>
+            <small id="ucp-pcb-hint-share" class="ucp-pcb__microHint"></small>
+          </div>
+          {% if section.settings.enable_save_build_cta %}
+            <button class="ucp-pcb__btn" type="button" id="ucp-pcb-save-build">Save Build</button>
+          {% endif %}
+          <button class="ucp-pcb__btn" type="button" id="ucp-pcb-quote-image">Create Screenshot</button>
+          <button class="ucp-pcb__btn" type="button" id="ucp-pcb-pdf" hidden>Download PDF</button>
+          <div class="ucp-pcb__actionWithHint">
+            <button class="ucp-pcb__btn{% unless section.settings.enable_add_to_cart_cta %} ucp-pcb__btn--solid{% endunless %}" type="button" id="ucp-pcb-request-quote">Request Quote</button>
+            <small id="ucp-pcb-hint-quote" class="ucp-pcb__microHint"></small>
+          </div>
+          {% if section.settings.enable_add_to_cart_cta %}
+            <button class="ucp-pcb__btn ucp-pcb__btn--solid" type="button" id="ucp-pcb-add-to-cart">Add build to cart</button>
+          {% endif %}
+        </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="ucp-pcb__main">
+      <div class="ucp-pcb__tabs" role="tablist">
+        <button class="ucp-pcb__tab" data-tab="processor" role="tab">CPU</button>
+        <button class="ucp-pcb__tab" data-tab="motherboard" role="tab">Motherboard</button>
+        <button class="ucp-pcb__tab" data-tab="memory" role="tab">RAM</button>
+        <button class="ucp-pcb__tab" data-tab="cpucooler" role="tab">CPU Cooler</button>
+        <button class="ucp-pcb__tab" data-tab="gpu" role="tab">GPU</button>
+        <button class="ucp-pcb__tab" data-tab="ssd" role="tab">SSD</button>
+        <button class="ucp-pcb__tab" data-tab="powersupply" role="tab">Power Supply</button>
+        <button class="ucp-pcb__tab" data-tab="case" role="tab">Case</button>
+        <button class="ucp-pcb__tab" data-tab="casefans" role="tab">Case Fans</button>
+        <button class="ucp-pcb__tab" data-tab="other" role="tab">Other</button>
+      </div>
+
+      <div class="ucp-pcb__controls">
+        <div class="ucp-pcb__control" id="ucp-pcb-brand-wrap">
+          <label for="ucp-pcb-brand">Brand</label>
+          <select id="ucp-pcb-brand">
+            <option value="">All</option>
+          </select>
+        </div>
+
+        <div class="ucp-pcb__control" id="ucp-pcb-socket-wrap" hidden>
+          <label for="ucp-pcb-socket">Socket</label>
+          <select id="ucp-pcb-socket">
+            <option value="">All</option>
+          </select>
+        </div>
+
+        <div class="ucp-pcb__control" id="ucp-pcb-chipset-wrap" hidden>
+          <label for="ucp-pcb-chipset" id="ucp-pcb-chipset-label">Chipset</label>
+          <select id="ucp-pcb-chipset">
+            <option value="">All</option>
+          </select>
+        </div>
+
+        <div class="ucp-pcb__control" id="ucp-pcb-gpu-brand-wrap" hidden>
+          <label for="ucp-pcb-gpu-brand">Brand</label>
+          <select id="ucp-pcb-gpu-brand">
+            <option value="">All</option>
+          </select>
+        </div>
+
+        <div class="ucp-pcb__control" id="ucp-pcb-boardpartner-wrap" hidden>
+          <label for="ucp-pcb-boardpartner">Board Partner</label>
+          <select id="ucp-pcb-boardpartner">
+            <option value="">All</option>
+          </select>
+        </div>
+
+        <div class="ucp-pcb__control" id="ucp-pcb-formfactor-wrap" hidden>
+          <label for="ucp-pcb-formfactor">Device Interface</label>
+          <select id="ucp-pcb-formfactor">
+            <option value="">All</option>
+          </select>
+        </div>
+
+        <div class="ucp-pcb__control" id="ucp-pcb-watts-wrap" hidden>
+          <label for="ucp-pcb-watts">Watts</label>
+          <select id="ucp-pcb-watts">
+            <option value="">All</option>
+          </select>
+        </div>
+
+        <div class="ucp-pcb__control" id="ucp-pcb-coolertype-wrap" hidden>
+          <label for="ucp-pcb-coolertype">Cooler Type</label>
+          <select id="ucp-pcb-coolertype">
+            <option value="">All</option>
+            <option value="air">Air Cooler</option>
+            <option value="aio">AIO Cooler</option>
+          </select>
+        </div>
+
+        <div class="ucp-pcb__control" id="ucp-pcb-caseff-wrap" hidden>
+          <label for="ucp-pcb-caseff">Supported Motherboard</label>
+          <select id="ucp-pcb-caseff">
+            <option value="">All</option>
+          </select>
+        </div>
+
+        <div class="ucp-pcb__control ucp-pcb__control--price" id="ucp-pcb-price-wrap">
+          <label for="ucp-pcb-price">Max price <span class="ucp-pcb__priceOut" id="ucp-pcb-price-out">₱0</span></label>
+          <input class="ucp-pcb__priceSlider" id="ucp-pcb-price" type="range" min="0" max="0" value="0" step="100">
+        </div>
+        <div class="ucp-pcb__control ucp-pcb__control--toggle" id="ucp-pcb-availableonly-wrap" {% unless section.settings.availability_filter_enabled %}hidden{% endunless %}>
+          <label class="ucp-pcb__toggleLabel" for="ucp-pcb-available-only">
+            <input id="ucp-pcb-available-only" type="checkbox" {% if section.settings.availability_filter_default_on %}checked{% endif %}>
+            <span>Available now only</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="ucp-pcb__table">
+        <div class="ucp-pcb__thead" id="ucp-pcb-head"></div>
+        <div class="ucp-pcb__tbody" id="ucp-pcb-body">
+          <div class="ucp-pcb__loading">Loading…</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="ucp-pcb__desktopDock" id="ucp-pcb-desktop-dock" hidden role="region" aria-label="Quick build actions">
+    <div class="ucp-pcb__desktopDockInner">
+      <div class="ucp-pcb__desktopDockSummary">
+        <span class="ucp-pcb__desktopDockLabel">Payable subtotal</span>
+        <strong class="ucp-pcb__desktopDockValue" id="ucp-pcb-desktop-dock-subtotal">&#8369;0</strong>
+      </div>
+
+      <div class="ucp-pcb__desktopDockActions" aria-label="Quick build actions">
+        <button class="ucp-pcb__btn" type="button" id="ucp-pcb-desktop-dock-share">Share</button>
+        {% if section.settings.enable_save_build_cta %}
+          <button class="ucp-pcb__btn" type="button" id="ucp-pcb-desktop-dock-save-build">Save Build</button>
+        {% endif %}
+        <button class="ucp-pcb__btn" type="button" id="ucp-pcb-desktop-dock-quote-image">Create Screenshot</button>
+        <button class="ucp-pcb__btn{% unless section.settings.enable_add_to_cart_cta %} ucp-pcb__btn--solid{% endunless %}" type="button" id="ucp-pcb-desktop-dock-request-quote">Request Quote</button>
+        {% if section.settings.enable_add_to_cart_cta %}
+          <button class="ucp-pcb__btn ucp-pcb__btn--solid" type="button" id="ucp-pcb-desktop-dock-add-to-cart">Add build to cart</button>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {%- comment -%}
+    Mobile overlay for the bottom drawer.
+    Hidden by default. JS toggles [hidden] and a root class to open the drawer.
+  {%- endcomment -%}
+  <div class="ucp-pcb__overlay" id="ucp-pcb-overlay" hidden></div>
+
+  {%- comment -%}
+    Mobile sticky bar.
+    Shows build totals and provides quick actions.
+  {%- endcomment -%}
+  <div class="ucp-pcb__mobileBar" id="ucp-pcb-mobilebar" aria-label="Build summary bar">
+    <button class="ucp-pcb__mobileBarMain" type="button" id="ucp-pcb-mobilebar-open">
+      <div class="ucp-pcb__mobileBarTop">
+        <span class="ucp-pcb__mobileBarTitle">Build summary</span>
+        <span class="ucp-pcb__mobileBarCount"><span id="ucp-pcb-mobilebar-count">0</span> items</span>
+      </div>
+      <div class="ucp-pcb__mobileBarNums">
+        <strong id="ucp-pcb-mobilebar-subtotal">₱0</strong>
+        <small>Bundle discount <span id="ucp-pcb-mobilebar-savings">₱0</span></small>
+      </div>
+    </button>
+
+    <div class="ucp-pcb__mobileBarActions" aria-label="Build actions">
+      <button class="ucp-pcb__mobileBarBtn" type="button" id="ucp-pcb-mobilebar-share">Share</button>
+      <button class="ucp-pcb__mobileBarBtn" type="button" id="ucp-pcb-mobilebar-screenshot">Screenshot</button>
+      <button class="ucp-pcb__mobileBarBtn{% unless section.settings.enable_add_to_cart_cta %} ucp-pcb__mobileBarBtn--solid{% endunless %}" type="button" id="ucp-pcb-mobilebar-quote">Quote</button>
+    </div>
+  </div>
+
+  <div class="ucp-pcb__quoteOverlay" id="ucp-pcb-quote-backdrop" hidden></div>
+  <div id="ucp-pcb-quote-overlay" hidden aria-hidden="true"></div>
+
+  <div class="ucp-pcb__quoteModal" id="ucp-pcb-quote-modal" hidden role="dialog" aria-modal="true" aria-label="Request Final Quote">
+    <div class="ucp-pcb__quoteModalHead">
+      <strong>Request Final Quote</strong>
+      <button type="button" class="ucp-pcb__quoteClose" id="ucp-pcb-quote-close" aria-label="Close quote modal">×</button>
+    </div>
+
+    <div class="ucp-pcb__quoteBlock">
+      <div class="ucp-pcb__quoteLabel">Quote Code</div>
+      <div class="ucp-pcb__quoteCodeRow">
+        <input id="ucp-pcb-quote-code" data-ucp-pcb-quote-code class="ucp-pcb__quoteCodeInput" type="text" value="Q-XXXXX" readonly>
+        <button type="button" class="ucp-pcb__btn ucp-pcb__btn--solid" id="ucp-pcb-quote-copy" aria-label="Copy quote code">Copy</button>
+      </div>
+      <div class="ucp-pcb__quoteHint">Paste this code in Messenger.</div>
+      <div class="ucp-pcb__quoteVersion" id="ucp-pcb-quote-version">Version: v1</div>
+    </div>
+
+    <div class="ucp-pcb__quoteBlock ucp-pcb__quoteBlock--secondary">
+      <div class="ucp-pcb__quoteLabel">Share link (optional)</div>
+      <div class="ucp-pcb__quoteLinkRow">
+        <input id="ucp-pcb-quote-link" class="ucp-pcb__quoteLink" type="text" value="" readonly>
+        <button type="button" class="ucp-pcb__btn" id="ucp-pcb-quote-copy-link" aria-label="Copy build link">Copy</button>
+      </div>
+      <div class="ucp-pcb__quoteHint">For reference only. Quote code is primary.</div>
+    </div>
+
+    <div class="ucp-pcb__quoteActions">
+      <button type="button" class="ucp-pcb__btn ucp-pcb__btn--solid" id="ucp-pcb-quote-messenger">Chat on Messenger</button>
+    </div>
+
+    <!-- Legacy hooks kept for compatibility -->
+    <input id="ucp-pcb-quote-approval-link" type="text" hidden aria-hidden="true">
+    <button type="button" id="ucp-pcb-quote-copy-code" hidden aria-hidden="true" tabindex="-1">Copy</button>
+    <button type="button" id="ucp-pcb-quote-chat" hidden aria-hidden="true" tabindex="-1">Chat</button>
+  </div>
+
+  <div class="ucp-pcb__onboardOverlay" id="ucp-pcb-onboard-overlay" hidden></div>
+  <div class="ucp-pcb__onboardModal" id="ucp-pcb-onboard-modal" hidden role="dialog" aria-modal="true" aria-label="PC Builder onboarding">
+    <div class="ucp-pcb__onboardHead">
+      <strong id="ucp-pcb-onboard-title">How this PC Builder works</strong>
+    </div>
+    <ul class="ucp-pcb__onboardBullets" id="ucp-pcb-onboard-bullets"></ul>
+    <div class="ucp-pcb__onboardGifWrap" id="ucp-pcb-onboard-gif-wrap" hidden>
+      <img id="ucp-pcb-onboard-gif" class="ucp-pcb__onboardGif" alt="PC Builder demo" loading="lazy">
+    </div>
+    <div class="ucp-pcb__onboardActions">
+      <a class="ucp-pcb__btn" id="ucp-pcb-onboard-view-demo" hidden>View demo</a>
+      <button type="button" class="ucp-pcb__btn" id="ucp-pcb-onboard-try-share">Try sharing</button>
+      <button type="button" class="ucp-pcb__btn ucp-pcb__btn--solid" id="ucp-pcb-onboard-close">Got it</button>
+    </div>
+  </div>
+
+  <div class="ucp-pcb__payOverlay" id="ucp-pcb-pay-overlay" hidden></div>
+  <div class="ucp-pcb__payModal" id="ucp-pcb-pay-modal" hidden role="dialog" aria-modal="true" aria-label="Payment instructions">
+    <div class="ucp-pcb__payHead">
+      <strong>Payment instructions</strong>
+      <button type="button" class="ucp-pcb__payClose" id="ucp-pcb-pay-close" aria-label="Close payment instructions">X</button>
+    </div>
+    <div class="ucp-pcb__payMethods" id="ucp-pcb-pay-methods"></div>
+    <div class="ucp-pcb__payActions">
+      <button type="button" class="ucp-pcb__btn ucp-pcb__btn--solid" id="ucp-pcb-pay-proof">Send proof of payment</button>
+      <button type="button" class="ucp-pcb__btn" id="ucp-pcb-pay-pdf">Download build PDF</button>
+    </div>
+    <div class="ucp-pcb__payNote" id="ucp-pcb-pay-proof-note">Please send proof of payment to our Facebook page to validate your payment.</div>
+  </div>
+
+  <button type="button"
+          class="ucp-pcb__btn ucp-pcb__btn--solid ucp-pcb__approvalReopen"
+          id="ucp-pcb-approval-reopen"
+          hidden>
+    Reopen approved build
+  </button>
+
+  <style>
+    /* Picked item remove button + alignment */
+    .ucp-pcb .ucp-pcb__pickedItem{
+      display:grid !important;
+      grid-template-columns: 1fr auto;
+      grid-template-rows: auto auto;
+      column-gap: 12px;
+      row-gap: 2px;
+      align-items:start;
+    }
+    .ucp-pcb .ucp-pcb__pickedLabel{ min-width:0; }
+    .ucp-pcb .ucp-pcb__pickedSelection{ min-width:0; }
+    .ucp-pcb .ucp-pcb__pickedSelection small{
+      display:block;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .ucp-pcb .ucp-pcb__pickedPrice{
+      text-align:right;
+      white-space:nowrap;
+      align-self:start;
+    }
+    .ucp-pcb .ucp-pcb__pickedRemove{
+      justify-self:end;
+      align-self:start;
+      border:0;
+      background:transparent;
+      padding: 2px 6px;
+      line-height:1;
+      font-size:18px;
+      cursor:pointer;
+      color:#d32f2f;
+    }
+    .ucp-pcb .ucp-pcb__pickedItem[data-empty="1"] .ucp-pcb__pickedRemove{
+      visibility:hidden;
+      pointer-events:none;
+    }
+
+    /* MVP perf card styling. Safe and isolated. */
+    .ucp-pcb .ucp-pcb__perfCard{
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 12px;
+      background: #fff;
+    }
+    .ucp-pcb .ucp-pcb__perfHead{
+      display:flex;
+      flex-direction:column;
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+    .ucp-pcb .ucp-pcb__perfTitle{
+      font-weight: 700;
+      font-size: 14px;
+      line-height: 1.2;
+    }
+    .ucp-pcb .ucp-pcb__perfSub{
+      font-size: 12px;
+      opacity: 0.75;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .ucp-pcb .ucp-pcb__perfControls{
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom: 10px;
+    }
+    .ucp-pcb .ucp-pcb__perfLabel{
+      font-size: 11px;
+      opacity: 0.75;
+      margin-bottom: 6px;
+    }
+    .ucp-pcb .ucp-pcb__perfPills{
+      display:flex;
+      gap: 6px;
+      flex-wrap:wrap;
+    }
+    .ucp-pcb .ucp-pcb__pill{
+      border: 1px solid rgba(0,0,0,0.14);
+      background: #fff;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .ucp-pcb .ucp-pcb__pill[data-active]{
+      border-color: rgba(0,0,0,0.55);
+      font-weight: 700;
+    }
+    .ucp-pcb .ucp-pcb__perfFps{
+      display:grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .ucp-pcb .ucp-pcb__perfFpsCell{
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 10px;
+      padding: 8px;
+      text-align:center;
+      background: rgba(0,0,0,0.02);
+    }
+    .ucp-pcb .ucp-pcb__perfFpsCell small{
+      display:block;
+      font-size: 11px;
+      opacity: 0.7;
+      margin-bottom: 4px;
+    }
+    .ucp-pcb .ucp-pcb__perfFpsCell strong{
+      display:block;
+      font-size: 13px;
+      line-height: 1.2;
+    }
+
+    /* Request Quote modal */
+    .ucp-pcb .ucp-pcb__quoteOverlay{
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      background: rgba(0,0,0,.45);
+    }
+    .ucp-pcb .ucp-pcb__quoteModal{
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 2001;
+      width: min(520px, calc(100% - 24px));
+      background: #fff;
+      border-radius: 16px;
+      border: 1px solid rgba(0,0,0,.12);
+      box-shadow: 0 18px 60px rgba(0,0,0,.25);
+      padding: 14px;
+    }
+    .ucp-pcb .ucp-pcb__quoteModalHead{
+      display:flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .ucp-pcb .ucp-pcb__quoteClose{
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      font-size: 22px;
+      line-height: 1;
+      padding: 2px 8px;
+    }
+    .ucp-pcb .ucp-pcb__quoteBlock{
+      border: 1px solid rgba(0,0,0,.10);
+      border-radius: 14px;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: rgba(0,0,0,.02);
+    }
+    .ucp-pcb .ucp-pcb__quoteBlock--secondary{
+      background: rgba(0,0,0,.01);
+    }
+    .ucp-pcb .ucp-pcb__quoteLabel{ font-size: 12px; opacity: .75; margin-bottom: 8px; }
+    .ucp-pcb .ucp-pcb__quoteCodeRow{
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .ucp-pcb .ucp-pcb__quoteCode,
+    .ucp-pcb .ucp-pcb__quoteCodeInput{
+      font-weight: 900;
+      font-size: 16px;
+      background: #fff;
+      border: 1px dashed rgba(0,0,0,.2);
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: inline-block;
+    }
+    .ucp-pcb .ucp-pcb__quoteCodeInput{
+      width: 100%;
+    }
+    .ucp-pcb .ucp-pcb__quoteHint{ margin-top: 8px; font-size: 12px; opacity: .75; }
+    .ucp-pcb .ucp-pcb__quoteVersion{ margin-top: 6px; font-size: 12px; opacity: .75; }
+    .ucp-pcb .ucp-pcb__quoteLinkRow{
+      display:flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .ucp-pcb .ucp-pcb__quoteLink{
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid rgba(0,0,0,.18);
+      padding: 10px 12px;
+      font-size: 12px;
+    }
+    .ucp-pcb .ucp-pcb__quoteActions{ display:flex; justify-content: flex-end; }
+    .ucp-pcb .ucp-pcb__control label{
+      font-weight: 700;
+    }
+  </style>
+</section>
+
+{{ 'html2canvas.min.js' | asset_url | script_tag }}
+{{ 'ucp-pcb-quote-image.js' | asset_url | script_tag }}
+
+<script>
+(function () {
+  if (window.__UCP_PCB_RULES_BOOT__) return;
+  window.__UCP_PCB_RULES_BOOT__ = true;
+
+  var cfgEl = document.getElementById('ucp-pcb-config');
+  var rulesEl = document.getElementById('ucp-pcb-bundle-rules');
+  var promosEl = document.getElementById('ucp-pcb-promo-rules');
+  var addonRulesEl = document.getElementById('ucp-pcb-addon-rules');
+
+  var cfg = {};
+  try { cfg = JSON.parse((cfgEl && cfgEl.textContent) ? cfgEl.textContent : '{}'); } catch (e) {}
+
+  function withPage(baseUrl, page) {
+    if (!baseUrl) return '';
+    return baseUrl + (baseUrl.indexOf('?') > -1 ? '&' : '?') + 'page=' + page;
+  }
+
+  function fetchAllRules(baseUrl) {
+    if (!baseUrl) return Promise.resolve(null);
+
+    var out = [];
+    var page = 1;
+    var guard = 0;
+
+    function step() {
+      guard += 1;
+      if (guard > 20) return Promise.resolve(out);
+
+      return fetch(withPage(baseUrl, page), { credentials: 'same-origin' })
+        .then(function (res) { if (!res.ok) throw new Error('rules fetch failed'); return res.json(); })
+        .then(function (json) {
+          var arr = (json && Array.isArray(json.rules)) ? json.rules : [];
+          out = out.concat(arr);
+
+          if (json && json.next_page) {
+            page = json.next_page;
+            return step();
+          }
+          return out;
+        });
+    }
+
+    return step();
+  }
+
+  function fetchAllPromos(baseUrl) {
+    if (!baseUrl) return Promise.resolve(null);
+
+    var out = [];
+    var page = 1;
+    var guard = 0;
+
+    function step() {
+      guard += 1;
+      if (guard > 20) return Promise.resolve(out);
+
+      return fetch(withPage(baseUrl, page), { credentials: 'same-origin' })
+        .then(function (res) { if (!res.ok) throw new Error('promos fetch failed'); return res.json(); })
+        .then(function (json) {
+          var arr = (json && Array.isArray(json.promos)) ? json.promos : [];
+          out = out.concat(arr);
+
+          if (json && json.next_page) {
+            page = json.next_page;
+            return step();
+          }
+          return out;
+        });
+    }
+
+    return step();
+  }
+
+  function fetchAllAddonDiscounts(baseUrl) {
+    if (!baseUrl) return Promise.resolve(null);
+
+    var out = [];
+    var page = 1;
+    var guard = 0;
+
+    function step() {
+      guard += 1;
+      if (guard > 20) return Promise.resolve(out);
+
+      return fetch(withPage(baseUrl, page), { credentials: 'same-origin' })
+        .then(function (res) { if (!res.ok) throw new Error('addon discounts fetch failed'); return res.json(); })
+        .then(function (json) {
+          var arr = (json && Array.isArray(json.addon_discounts)) ? json.addon_discounts : [];
+          out = out.concat(arr);
+
+          if (json && json.next_page) {
+            page = json.next_page;
+            return step();
+          }
+          return out;
+        });
+    }
+
+    return step();
+  }
+
+  var rulesReady = fetchAllRules(cfg.bundle_rules_endpoint)
+    .then(function (full) {
+      if (rulesEl && full && full.length) {
+        rulesEl.textContent = JSON.stringify(full);
+      }
+    })
+    .catch(function () {
+      // If the endpoint is missing or fails, we keep the fallback rules already embedded in the script tag (max 50).
+    });
+
+  var promosReady = fetchAllPromos(cfg.promo_rules_endpoint)
+    .then(function (full) {
+      if (promosEl && full && full.length) {
+        promosEl.textContent = JSON.stringify(full);
+      }
+    })
+    .catch(function () {
+      // If the endpoint is missing or fails, we keep the fallback promos already embedded in the script tag (max 50).
+    });
+
+  var addonDiscountsReady = fetchAllAddonDiscounts(cfg.addon_discount_rules_endpoint)
+    .then(function (full) {
+      if (addonRulesEl && full && full.length) {
+        addonRulesEl.textContent = JSON.stringify(full);
+      }
+    })
+    .catch(function () {
+      // If the endpoint is missing or fails, we keep the fallback add-on rules already embedded in the script tag (max 50).
+    });
+
+  Promise.all([rulesReady, promosReady, addonDiscountsReady])
+    .finally(function () {
+      function loadScript(src) {
+        return new Promise(function (resolve, reject) {
+          var s = document.createElement('script');
+          s.src = src;
+          s.defer = true;
+          s.onload = resolve;
+          s.onerror = reject;
+          document.head.appendChild(s);
+        });
+      }
+
+      var builderSrc = {{ 'ucp-pc-builder.js' | asset_url | json }};
+      var buildLinkSrc = {{ 'ucp-pcb-build-link.js' | asset_url | json }};
+      var requestQuoteSrc = {{ 'ucp-pcb-request-quote.js' | asset_url | json }};
+      var onboardingSrc = {{ 'ucp-pcb-onboarding.js' | asset_url | json }};
+      var approvalSrc = {{ 'ucp-pcb-approval.js' | asset_url | json }};
+      var quoteLookupSrc = {{ 'ucp-pcb-quote-lookup.js' | asset_url | json }};
+
+      loadScript(builderSrc)
+        .then(function () { return loadScript(buildLinkSrc); })
+        .then(function () { return loadScript(requestQuoteSrc); })
+        .then(function () { return loadScript(onboardingSrc); })
+        .then(function () { return loadScript(quoteLookupSrc); })
+        .then(function () { return loadScript(approvalSrc); });
+    });
+})();
+</script>
+
+{% schema %}
+{
+  "name": "UCP PC Builder",
+  "settings": [
+    { "type": "collection", "id": "cpu_collection", "label": "CPU collection" },
+    { "type": "collection", "id": "motherboards_collection", "label": "Motherboards collection" },
+    { "type": "collection", "id": "gpu_collection", "label": "GPU collection" },
+    { "type": "collection", "id": "ram_collection", "label": "RAM collection" },
+    { "type": "collection", "id": "ssd_collection", "label": "SSD collection" },
+    { "type": "collection", "id": "case_collection", "label": "Case collection" },
+    { "type": "collection", "id": "psu_collection", "label": "Power Supply collection" },
+    { "type": "collection", "id": "cooler_collection", "label": "CPU Cooler collection" },
+    { "type": "collection", "id": "case_fans_collection", "label": "Case Fans collection" },
+    { "type": "collection", "id": "ups_collection", "label": "Other collection (peripherals, UPS, etc.)" },
+
+    { "type": "checkbox", "id": "pcb_perf_enabled", "label": "Enable FPS Performance Preview", "default": true },
+    { "type": "checkbox", "id": "enable_save_build_cta", "label": "Enable Save Build CTA", "default": false },
+    { "type": "checkbox", "id": "enable_add_to_cart_cta", "label": "Enable Add build to cart CTA", "default": false },
+
+    { "type": "checkbox", "id": "approval_payment_enabled", "label": "Enable approval payment checklist", "default": true },
+    {
+      "type": "select",
+      "id": "payment_proof_mode",
+      "label": "Payment proof link mode",
+      "default": "messenger",
+      "options": [
+        { "value": "messenger", "label": "Messenger" },
+        { "value": "facebook_page", "label": "Facebook Page" }
+      ]
+    },
+    { "type": "text", "id": "payment_messenger_username", "label": "Messenger page username", "default": "UncappedPC" },
+    { "type": "url", "id": "payment_facebook_page_url", "label": "Facebook page URL" },
+    { "type": "text", "id": "payment_proof_text", "label": "Payment proof instruction text", "default": "Please send proof of payment to our Facebook page to confirm your order." },
+    { "type": "checkbox", "id": "payment_mobile_qr_download_enabled", "label": "Enable mobile QR download step", "default": true },
+    { "type": "checkbox", "id": "approval_strip_param_on_close", "label": "Strip approve=1 param after approval", "default": true },
+    { "type": "checkbox", "id": "approval_reopen_button_enabled", "label": "Enable approval reopen button", "default": true },
+    { "type": "checkbox", "id": "onboarding_enabled", "label": "Enable onboarding modal", "default": true },
+    { "type": "text", "id": "onboarding_title", "label": "Onboarding title", "default": "How this PC Builder works" },
+    { "type": "text", "id": "onboarding_bullet_1", "label": "Onboarding bullet 1", "default": "Pick one part per category to build your PC." },
+    { "type": "text", "id": "onboarding_bullet_2", "label": "Onboarding bullet 2", "default": "Share your build link to keep your parts." },
+    { "type": "text", "id": "onboarding_bullet_3", "label": "Onboarding bullet 3", "default": "Request a quote to chat with our team." },
+    { "type": "checkbox", "id": "onboarding_show_try_share", "label": "Show Try sharing button", "default": true },
+    { "type": "text", "id": "onboarding_got_it_label", "label": "Got it button label", "default": "Got it" },
+    { "type": "text", "id": "onboarding_try_share_label", "label": "Try sharing label", "default": "Try sharing" },
+    { "type": "checkbox", "id": "onboarding_gif_enabled", "label": "Enable onboarding GIF", "default": false },
+    {
+      "type": "select",
+      "id": "onboarding_gif_mode",
+      "label": "Onboarding GIF mode",
+      "default": "embed",
+      "options": [
+        { "value": "embed", "label": "Embed GIF" },
+        { "value": "link", "label": "View demo link" }
+      ]
+    },
+    { "type": "image_picker", "id": "onboarding_gif_image", "label": "Onboarding GIF image" },
+    { "type": "text", "id": "onboarding_gif_url", "label": "Onboarding GIF URL" },
+    { "type": "text", "id": "onboarding_view_demo_label", "label": "View demo label", "default": "View demo" },
+    { "type": "checkbox", "id": "promo_discovery_modal_enabled", "label": "Enable promo discovery modal", "default": true },
+    {
+      "type": "select",
+      "id": "promo_discovery_visibility_mode",
+      "label": "Promo discovery visibility",
+      "default": "cooldown",
+      "options": [
+        { "value": "session", "label": "Once per browser session" },
+        { "value": "cooldown", "label": "Hide after dismissal for cooldown days" },
+        { "value": "always", "label": "Every eligible visit" }
+      ]
+    },
+    { "type": "range", "id": "promo_discovery_cooldown_days", "label": "Promo modal cooldown days", "min": 1, "max": 30, "step": 1, "default": 7 },
+    { "type": "checkbox", "id": "hints_enabled", "label": "Enable micro-hints", "default": true },
+    { "type": "text", "id": "hint_share_text", "label": "Hint under Share button", "default": "Creates a link that keeps your parts." },
+    { "type": "text", "id": "hint_quote_text", "label": "Hint under Request Quote button", "default": "Generates a Quote Code for Messenger." },
+    { "type": "checkbox", "id": "promo_loading_modal_enabled", "label": "Enable promo loading modal", "default": true },
+    { "type": "checkbox", "id": "quote_loading_modal_enabled", "label": "Enable quote loading modal", "default": true },
+    { "type": "checkbox", "id": "approval_loading_modal_enabled", "label": "Enable approval loading modal", "default": true },
+    { "type": "text", "id": "my_builds_proxy_base_path", "label": "My Builds proxy base path", "default": "/apps/upgrade-assist" },
+    { "type": "url", "id": "my_builds_page_url", "label": "My Builds page URL" },
+    {
+      "type": "select",
+      "id": "quote_screenshot_mode",
+      "label": "Quote screenshot layout",
+      "default": "detailed",
+      "options": [
+        { "value": "detailed", "label": "Detailed with quick description" },
+        { "value": "clean", "label": "Clean item-only layout" },
+        { "value": "compact", "label": "Compact My Builds-style layout" },
+        { "value": "compact_mobile", "label": "Compact mobile version" },
+        { "value": "socials_compact", "label": "Socials compact" },
+        { "value": "socials_compact_mobile", "label": "Socials compact mobile" },
+        { "value": "quotation", "label": "Quotation table" },
+        { "value": "quotation_mobile", "label": "Quotation mobile table" }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "quote_screenshot_mode_mobile",
+      "label": "Mobile quote screenshot layout",
+      "default": "same_as_desktop",
+      "options": [
+        { "value": "same_as_desktop", "label": "Same as desktop" },
+        { "value": "detailed", "label": "Detailed with quick description" },
+        { "value": "clean", "label": "Clean item-only layout" },
+        { "value": "compact", "label": "Compact My Builds-style layout" },
+        { "value": "compact_mobile", "label": "Compact mobile version" },
+        { "value": "socials_compact", "label": "Socials compact" },
+        { "value": "socials_compact_mobile", "label": "Socials compact mobile" },
+        { "value": "quotation", "label": "Quotation table" },
+        { "value": "quotation_mobile", "label": "Quotation mobile table" }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "quote_font_preset",
+      "label": "Quote screenshot font preset",
+      "default": "inter_roboto",
+      "options": [
+        { "value": "inter_roboto", "label": "Inter + Roboto" },
+        { "value": "all_inter", "label": "All Inter" },
+        { "value": "roboto_inter", "label": "Roboto + Inter" },
+        { "value": "theme", "label": "Theme font" },
+        { "value": "system", "label": "System font" }
+      ]
+    },
+    { "type": "checkbox", "id": "availability_filter_enabled", "label": "Enable Available now filter", "default": true },
+    { "type": "checkbox", "id": "availability_filter_default_on", "label": "Default Available now filter to on", "default": false },
+    {
+      "type": "select",
+      "id": "payment_mobile_pdf_mode",
+      "label": "Mobile PDF mode",
+      "default": "no_qr",
+      "options": [
+        { "value": "no_qr", "label": "No QR in PDF" },
+        { "value": "embed_qr", "label": "Embed QR in PDF" },
+        { "value": "hide_pdf", "label": "Hide PDF action" }
+      ]
+    },
+
+    {
+      "type": "select",
+      "id": "default_tab",
+      "label": "Default tab",
+      "default": "processor",
+      "options": [
+        { "value": "processor", "label": "CPU" },
+        { "value": "motherboard", "label": "Motherboards" },
+        { "value": "memory", "label": "RAM" },
+        { "value": "gpu", "label": "GPU" },
+        { "value": "cpucooler", "label": "CPU Cooler" },
+        { "value": "ssd", "label": "SSD" },
+        { "value": "powersupply", "label": "Power Supply" },
+        { "value": "case", "label": "Case" },
+        { "value": "casefans", "label": "Case Fans" },
+        { "value": "other", "label": "Other" }
+      ]
+    }
+  ],
+  "blocks": [
+    {
+      "type": "payment_method",
+      "name": "Payment method",
+      "settings": [
+        { "type": "text", "id": "method_id", "label": "Method ID" },
+        { "type": "text", "id": "method_label", "label": "Label" },
+        { "type": "image_picker", "id": "method_logo", "label": "Logo" },
+        { "type": "image_picker", "id": "method_qr", "label": "QR code" },
+        { "type": "text", "id": "account_name", "label": "Account name" },
+        { "type": "text", "id": "account_number", "label": "Account number / mobile number" }
+      ]
+    }
+  ],
+  "presets": [
+    { "name": "UCP PC Builder" }
+  ]
+}
+{% endschema %}

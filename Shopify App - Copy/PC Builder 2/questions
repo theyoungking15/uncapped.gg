@@ -1,0 +1,435 @@
+i have a 9800X3D Bundle Build with 10000 off. what What happened was after I pressed save builds It saved the builds on the My Builds page But what is the confusing part is on the My Builds page it all of the item plus the discount I created the My Builds page so the total should be 64,900 without the bundle price and the one the discounted price is 54,900 and after I press the my builds page I mean after I pressed the save builds it logged as the 54,900 and when I try to open my build it open the quote code And remove the discounted price on the 9800 X3D bundle discount. And once I have pressed the share button Inside of the My Builds page it opened the approval model plus the discounted price. There are a few questions that umm we have to address first if the consumer or probably the customer is logged on what link does he save inside of the umm my builds page because the confusing part is when I I initially constructed the 9800 X3D bundle on the PC Builder so I quoted an image so that umm it would log on the script
+After it had logged on the script the next thing I did was added a param so that it would include a 10,000 discount and after it had opened uh I quoted or I created a screenshot then saved the build. so the question is Whenever the save build is pressed. What does it reference to save it on the My Builds page.
+
+
+# Fix My Builds Discount Restore Behavior
+
+  ## Summary
+
+  The current behavior is split between two sources of truth. My Builds displays the saved build_snapshot, so it can show the discounted total 54,900. But Open/Share rebuilds the PC Builder mostly from the saved
+  quote_code, which does not preserve the manual off=10000 discount reliably. The fix is to make saved builds restore from the saved build payload plus a discount lock, not from quote code alone.
+
+   - How would we execute the discount lock because what I was thinking umm what I think would be helpful is can we add another params That is discounted for that we could manually add so it's like the off function as params but the difference with this params is that umm if they change the initial item like whatever was inside of the params of the initial quote code it would automatically umm remove the discounted price so it's like a conditional params for a specific component that we have added
+
+   So for example is the 9800 X 3D bundle consist of a 9800 X 3D A B850 motherboard And 32 gigs of RAM. So what we could do is if they change like for example the B850 to A B650 It would automatically remove the discounted price or the discounted params but they can add additional items and it would still consist of the discount
+
+  ## What Is Happening Now
+
+  - PC Builder totals are computed as rawSubtotal - bundleDiscount - manualOff in PC Builder 2/assets/ucp-pc-builder.js:645.
+  - manualOff comes only from the URL param ?off=10000, read on page load in PC Builder 2/assets/ucp-pc-builder.js:87.
+  - Save Build stores build_payload, quote_code, and build_snapshot in PC Builder 2/assets/ucp-pc-builder.js:5376.
+  - My Builds displays the saved snapshot total, so it can show 54,900.
+  - My Builds Open currently prefers quoteCode and builds /pages/pc-builder-2?quote=... in My Builds/sections/my-builds-page.liquid:963.
+  - Because that Open URL does not include off=10000, reopening the build loses the manual discount.
+  - If we simply add off=10000 to every saved build URL, the discount would incorrectly stay active even after the customer changes parts.
+
+  ## Key Fix
+
+  Use the saved build payload as the restore source, and lock manual discounts to the exact saved build.
+
+  - My Builds Open/Share should prefer buildPayloadEncoded over quoteCode. 
+        -    But the question is How the link looked like if you would prefer the build payload encoded So if there's a discount would it automatically add that discount to the link
+  - If the saved snapshot has totals.manualOff > 0, append off=10000 plus a lock value based on the saved build payload.
+  - PC Builder should apply the manual discount only while the current selected build still matches that lock.
+  - If the customer changes any selected parts or quantities, PC Builder should clear the manual discount and remove the discount params from the URL.
+  - quote_code remains useful for logs/reference, but should not be the primary restore source for saved builds.
+
+  ## Intended User Behavior
+
+  - Customer saves the discounted build at 54,900.
+  - My Builds shows 54,900.
+  - Opening the saved build initially restores the exact saved build and still shows 54,900.
+  - If the customer changes parts, the manual 10,000 discount is removed automatically.
+  - Bundle discounts from CPU/motherboard rules still recalculate normally.
+  - Share uses the same safe saved-build restore link.
+
+  ## Test Plan
+
+  - Save a build with ?off=10000; confirm My Builds shows the discounted total.
+  - Save the changed build; confirm the new saved build does not incorrectly keep the old off=10000.
+
+  ## Assumptions
+
+  - off=10000 is a manual/special discount and should not follow changed builds.
+  - Bundle discounts are rule-based and should continue recalculating dynamically.
+  - My Builds should prioritize accurate saved-build restoration over the shortest possible URL
+
+  ________________________________________________
+
+
+   build=ENCODED_BUILD&promo=PROMO_HANDLE
+
+  instead of only:
+
+  quote=Q-XXXXX
+
+  ## Test Cases
+
+  - Open a saved build with required CPU, motherboard, and RAM; promo discount applies.
+  - Add extra components; promo discount stays.
+  - Replace required motherboard; promo discount disappears.
+  - Remove required RAM; promo discount disappears.
+  - Disable is_active; promo no longer applies even if URL has promo=....
+  ## Assumptions
+
+  - Promo metaobjects are for manual/special promos, not replacing the existing CPU/motherboard bundle system.
+  - The promo handle is the public URL key.
+  - The MVP will not require Shopify checkout discount integration yet; this is PC Builder/My Builds quote pricing behavior. 
+
+
+   # Shopify Metaobject Setup: PC Builder Promos
+
+  ## Summary
+
+  Create a new promo metaobject that is separate from the existing cpu_motherboard_bundle metaobject. Keep the current CPU/motherboard bundle system as-is, then add this new promo layer for special
+  manual discounts like the 9800X3D full bundle promo.
+
+  ## Create This Metaobject Definition
+
+  In Shopify Admin, go to Settings → Custom data → Metaobjects or Content → Metaobjects, then create:
+
+  Name: PC Builder Promo
+  Type: pc_builder_promo
+  Storefront access: Enabled
+
+  Fields to add:
+
+  promo_label
+  Type: Single line text
+  Required: Yes
+  Example: 9800X3D Bundle Promo
+
+  is_active
+  Type: Boolean
+  Required: Yes
+  Default: true
+
+  discount_amount
+  Type: Integer
+  Required: Yes
+  Example: 10000
+
+  stack_with_bundle_discount
+  Type: Boolean
+  Required: Yes
+  Default: true
+
+  required_components
+  Type: JSON
+  Required: Yes
+
+  badge_label
+  Type: Single line text
+  Required: No
+  Example: Limited ₱10,000 Off
+
+  starts_at
+  Type: Date and time
+  Required: No
+
+  ends_at
+  Type: Date and time
+  Required: No
+
+  internal_note
+  Type: Multi-line text
+  Required: No
+
+  ## First Promo Entry Example
+
+  Create one entry:
+
+  Entry name: 9800X3D Bundle Promo
+  Handle: 9800x3d-bundle
+  promo_label: 9800X3D Bundle Promo
+  is_active: true
+  discount_amount: 10000
+  stack_with_bundle_discount: true
+  badge_label: Limited ₱10,000 Off
+
+  For required_components, use this structure:
+
+  [
+    {
+      "tab": "processor",
+      "product_id": "PRODUCT_ID_HERE",
+      "variant_id": "VARIANT_ID_HERE",
+      "label": "Ryzen 7 9800X3D"
+    },
+    {
+      "tab": "motherboard",
+      "product_id": "PRODUCT_ID_HERE",
+      "variant_id": "VARIANT_ID_HERE",
+      "label": "B850 Motherboard"
+    },
+    {
+      "tab": "memory",
+      "product_id": "PRODUCT_ID_HERE",
+      "variant_id": "VARIANT_ID_HERE",
+      "qty": 1,
+      "label": "32GB RAM"
+    }
+  ]
+
+  ## Behavior This Enables
+
+  If stack_with_bundle_discount is true:
+
+  Raw subtotal - CPU/motherboard bundle discount - promo discount
+
+  Example:
+
+  ₱67,400 - ₱2,500 - ₱10,000 = ₱54,900
+
+  If stack_with_bundle_discount is false:
+
+  Raw subtotal - promo discount
+
+  This lets you override the normal CPU/motherboard bundle discount for promos where you do not want both discounts to apply.
+
+  ## Matching Rules
+
+  The promo applies only if every item in required_components is selected.
+
+  Allowed:
+
+  - Customer adds extra SSD, case, fans, accessories, etc.
+  - Promo still applies.
+
+  Not allowed:
+
+  - Customer replaces the required B850 motherboard with B650.
+  - Customer removes the required RAM.
+  - Customer changes the required CPU.
+  - Promo is disabled automatically.
+
+  ## Future URL Shape
+
+  After this metaobject exists, links can become:
+
+  /pages/pc-builder-2?build=ENCODED_BUILD&promo=9800x3d-bundle
+
+  - Do not replace cpu_motherboard_bundle; this new pc_builder_promo sits on top of it.
+  - Use required_components JSON because it supports unlimited required items.
+  - Shopify supports metaobjects, JSON fields, and storefront access for online store/Liquid usage:
+    https://help.shopify.com/en/manual/custom-data/metaobjects
+    https://shopify.dev/docs/apps/custom-data/metafields/types
+
+
+  short_description (renamed to Description)
+  Key: description
+  Multi-line text
+  Example: Applies when Ryzen 7 9800X3D, selected B850 board, and 32GB RAM are in the build.
+
+  terms_text (Terms)
+  Key: terms
+  Multi-line text
+  Example: Promo applies only while stocks last. Required components cannot be replaced.
+
+  starts_at
+  Date and time
+
+  ends_at
+  Date and time
+
+  priority
+  Integer
+  Example: 10
+
+  promo_type
+  Single line text
+  Example: fixed_amount
+
+  public_visibility
+  Boolean
+  true = can show on website promo sections later
+  false = hidden/admin-only promo
+
+  internal_note
+  Multi-line text
+  For your admin notes only
+
+  For MVP, the most important fields are:
+
+  promo_label
+  is_active
+  discount_amount
+  stack_with_bundle_discount
+  required_components
+  image
+
+  Example required_components:
+
+  [
+    {
+      "tab": "processor",
+      "product_id": "7997444784265",
+      "variant_id": "43360240140425",
+      "qty": 1,
+      "label": "Ryzen 7 9800X3D"
+    },
+    {
+      "tab": "motherboard",
+      "product_id": "7997444030601",
+      "variant_id": "43360238796937",
+      "qty": 1,
+      "label": "B850 Motherboard"
+    },
+    {
+      "tab": "memory",
+      "product_id": "8461938524297",
+      "variant_id": "45326430109833",
+      "qty": 1,
+      "label": "32GB RAM"
+    }
+  ]
+
+  Long term, yes: we can make this easier so you just pick products/variants in Shopify instead of
+  writing JSON. For now, JSON is the fastest MVP.
+
+
+
+
+  here's what I want To happen every time that we press share from PC builder. Open Build share on my builds it should show the quote code instead of the long links. 
+  what Problems do you think we would encounter if we were try to do if we are going to do this because I don't want whenever we want to share this I don't want it to have a very long link,
+  And on the logs of the google sheets the UCP PC builder logs Can we add another column before build link the quote code without the approval link
+  
+  Add a new saved_build metaobject field: quote_version
+      - Store it when Save Build is pressed, alongside existing quote_code, build_payload, and build_snapshot.
+        should I add a new definition in the saved builds metaobjects?
+    
+    Add a new trailing column quoteLink to UCP PC Builder Logs
+     - just to clarify can you give me an example of how this works? or how you will implement this?
+
+     Since we have these iterations how will this affect the promo param URL.
+
+
+
+     Why it does not log every time right now:
+
+  - v1 is intentionally deduped with sessionStorage
+  - same URL + same browser tab/session = only one link_open
+  - refreshing the page in the same tab will not add another row
+  - reopening the same link in a new tab, incognito, or after closing the tab should count again
+
+  So if you were checking build_logs, or refreshing the same tab, it would look like it is not working even though that is the current rule.
+
+  can we add the session ID of the user when they open so its easier to trace back? 
+  can I make my own src like whatever I place on "&src=fbm" would that log on the link source events?
+  or is it in the code where I can edit it?
+
+  What to check:
+
+  1. Open the spreadsheet tab link_source_events
+  2. Open your tagged link once in a fresh tab
+  3. You should see a row with:
+      - sourceTag = fb_marketplace
+      - entryType = promo
+  4. Check link_source_daily
+      - it should show the daily count for fb_marketplace
+
+  If you want literal every open instead of deduped-per-tab, I can change that. The simplest fix is:
+
+  - remove the sessionStorage dedupe entirely, or
+  - keep a short cooldown like 10-30 seconds instead of one-per-tab-session
+
+  For your use case, I’d recommend the second option. It avoids refresh spam but still counts repeated real opens more accurately.
+
+
+
+  # Formal Quotation Quote Image Version
+
+  ## Reference Articulation
+
+  The image is a formal quotation sheet: a clean white document with a business letterhead, quotation title, recipient/build line, quote number/date, short intro copy, itemized table, grand total box, closing note,
+
+  probably remove the business letterhead, quotation title probably if they placed it on my builds and they named it already. quote number replaced to quote code/ date is fine don't include time, no need for short intro, itemized table is good, grand total box is fine, closing note we'll just replace that with the socials footer
+
+  and signature area. It feels more like a printable supplier quotation than the current product-card quote screenshot.
+
+  For our version, the necessary parts are:
+
+  - Uncapped PC logo and business identity at the top
+  - Quotation title (if it has a build name or promo)
+  - Quote code/version and date 
+  - Build/customer line, using the quote/build summary available from PC Builder
+  - Itemized component table with #, Description, Qty, Price, and Total (just pick 1 its fine probably total is good)
+  - Discount rows when present
+  - Grand total/payable subtotal as the strongest total
+  - Footer note and optional signature/contact block 
+   - the most important takeaway from my end is probably the how compact it looks. that what I value more rather than the contens. If we were to create something like this and make specifically for phones how would it look like? can we create 2 draft like this, normal one and for phones
+
+  We should not include product images in this version. The reference layout is table-first, so images would make it less formal and less compact.
+
+  ## Key Changes
+
+  - Add a new quote screenshot mode called quotation. 
+  - Keep existing modes untouched: detailed, clean, and compact.
+  - Add Quotation / formal table as a Theme Editor option in both PC Builder and My Builds screenshot layout selectors.
+  - In ucp-pcb-quote-image.js, add a new renderer path for quotation mode:
+      - A4-like portrait document width.
+      - Letterhead-style header with logo, business name/contact line, and Quotation. (contact is 0921-287-1407)
+      - Metadata block with Quote Code, Version, and Date.
+      - Formal table rows using component item names, variants when present, quantity, unit price, and line total.
+      - Totals section with savings, promo/manual discount, and grand total.
+      - Closing note and Uncapped PC signature/contact area. (probably don't include this anymore? let's just create a draft first then we'll see)
+  - Reuse existing snapshot data only; do not require new backend fields.
+
+  ## Data Mapping
+
+  - Logo: existing brandLogo / cfg.brand_logo.
+  - Business name: Uncapped PC.
+  - Quote number: existing quote code, with version shown when available.
+  - Date: existing quote image date helper.
+  - Recipient/build line: use available quote/build summary, fallback to Custom PC Build.
+  - Description: component label plus product title and variant title.
+  - Qty: existing line item quantity.
+  - Price: existing item unit price.
+  - Total: item price multiplied by quantity.
+  - Grand total: existing payable subtotal / total value.
+  - Discounts: render only when existing savings, promo, or manual-off values are present.
+
+  ## Test Plan
+
+  - Select Quotation / formal table in PC Builder Theme Editor and generate a screenshot.
+  - Confirm the screenshot has no product images and uses the formal table layout.
+  - Confirm long product names wrap cleanly inside the description column.
+  - Confirm My Builds screenshot can also use the new quotation mode.
+  ## Assumptions
+
+  - The new mode name will be quotation.
+  - The first version will be a PNG screenshot like the existing quote image system, not a downloadable PDF.
+  - We will use Uncapped PC branding and structure inspired by the reference, not copy the King’s PC branding.
+  - Signature will be a text/signature area only unless a real signature asset is provided later.
+    - also can we check if it's possible to place on the liquid the fonts that we're going to use on the quote image we have inter and roboto right? would it be possible to have it customizeable in liquid?
+
+
+
+    changes for the quotation table mobile.
+    1. Place the Logo on the top middle like the same as the other quote image
+    2. Remove the Uncapped PC Text, can you replace it with a location pin emoji or other and replace it with Binondo, Manila
+    3. Place the date on the right side 
+    4. remove the # column let's just not include that
+    5. instead of a dotted line can we replace it with a line that is at least .05 opacity
+    6. Can you remove the border lines on top of the row heading of description, qty, total, and remove the border line on the side the table (make sure it still looks presentable)
+    7. Make the bundle Discount and the name of the bundle or bundle discount more subtle, and no need to place them on a different box
+    8. and the pricing table could you reduce the separator between them. 
+    
+     changes for the quotation Table.
+    1. Place the Logo on the top middle like the same as the other quote image
+    2. Remove the Uncapped PC Text, can you replace it with a location pin emoji or other and replace it with Binondo, Manila
+    3. Place the date only on the right side. Name of the build or promo, quote code, version is on the left side
+    4. remove the # column let's just not include that
+    5. instead of a dotted line can we replace it with a line that is at least .05 opacity
+    6. Can you remove the border lines on top of the row heading of description, qty, total, and remove the border line on the side the table (make sure it still looks presentable)
+    7. Make the bundle Discount and the name of the bundle or bundle discount more subtle, and no need to place them on a different box
+
+
+
+    changes for the quotation table both mobile and normal
+    1. Change the Grand Total to Subtotal
+    2. for the component type (cpu, motherboard) can you make it less bigger, or less subtle. but not too subtle like the variation
+
+  changes for the quotation table mobile
+  1. reduce the separator on the prices table. between the bundle discount, promo, subtotal and the prices
+  

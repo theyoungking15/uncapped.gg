@@ -1,0 +1,15 @@
+# Runtime / local app state
+**/node_modules/
+**/.env
+**/.env.local
+**/.env.*.local
+!**/.env.example
+Upgrade Assist/app/storage/submissions.json
+Upgrade Assist/app/storage/uploads/*
+!Upgrade Assist/app/storage/uploads/.gitkeep
+
+# Local workspace / temp
+.repo-inspect/
+*.log
+Thumbs.db
+.DS_Store

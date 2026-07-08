@@ -1,0 +1,17 @@
+name = "__APP_NAME__"
+client_id = "__CLIENT_ID__"
+application_url = "__APPLICATION_URL__"
+embedded = false
+
+[build]
+automatically_update_urls_on_dev = true
+include_config_on_deploy = true
+
+[webhooks]
+api_version = "2026-01"
+
+[access_scopes]
+scopes = "__SCOPES__"
+
+[auth]
+redirect_urls = ["__REDIRECT_URL__"]

@@ -1,0 +1,45 @@
+{%- layout none -%}
+
+{%- assign mo = shop.metaobjects['pc_builder_promo'] -%}
+
+{%- if mo and mo.values -%}
+  {%- paginate mo.values by 250 -%}
+  {
+    "promos": [
+      {%- assign first = true -%}
+      {%- for p in mo.values -%}
+        {%- assign is_active = p.is_active.value -%}
+        {%- if is_active -%}
+          {%- assign promo_handle = '' -%}
+          {%- if p.system and p.system.handle -%}
+            {%- assign promo_handle = p.system.handle | strip | downcase -%}
+          {%- endif -%}
+          {%- assign promo_image = p.image.value -%}
+
+          {%- unless first -%},{%- endunless -%}
+          {
+            "handle": {{ promo_handle | json }},
+            "promo_label": {{ p.promo_label.value | default: "" | json }},
+            "is_active": {{ p.is_active.value | default: false | json }},
+            "discount_amount": {{ p.discount_amount.value | default: 0 | json }},
+            "stack_with_bundle_discount": {{ p.stack_with_bundle_discount.value | default: false | json }},
+            "required_components": {%- if p.required_components.value != blank -%}{{ p.required_components.value | json }}{%- else -%}[]{%- endif -%},
+            "badge_label": {{ p.badge_label.value | default: "" | json }},
+            "description": {{ p.description.value | default: "" | json }},
+            "terms": {{ p.terms.value | default: "" | json }},
+            "starts_at": {{ p.starts_at.value | default: "" | json }},
+            "ends_at": {{ p.ends_at.value | default: "" | json }},
+            "priority": {{ p.priority.value | default: 0 | json }},
+            "public_visibility": {{ p.public_visibility.value | default: false | json }},
+            "image_url": {%- if promo_image != blank -%}{{ promo_image | image_url: width: 720 | json }}{%- else -%}""{%- endif -%}
+          }
+          {%- assign first = false -%}
+        {%- endif -%}
+      {%- endfor -%}
+    ],
+    "next_page": {%- if paginate.current_page < paginate.pages -%}{{ paginate.current_page | plus: 1 }}{%- else -%}null{%- endif -%}
+  }
+  {%- endpaginate -%}
+{%- else -%}
+  {"promos":[],"next_page":null}
+{%- endif -%}

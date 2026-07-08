@@ -1,0 +1,1469 @@
+<section class="upgrade-assist page-width section-{{ section.id }}-padding" data-upgrade-assist-section="{{ section.id }}">
+  {% assign encoded_return_path = request.path | url_encode %}
+  {% assign login_url = '/customer_authentication/login?return_to=' | append: encoded_return_path %}
+
+  {% assign brand_definition = shop.metaobjects.brand %}
+  {% assign brand_values = blank %}
+  {% if brand_definition != blank %}
+    {% assign brand_values = brand_definition.values %}
+  {% endif %}
+  {% assign brand_option_count = 0 %}
+  {% capture brand_options_markup %}
+    <option value="">Select brand</option>
+    {% for brand in brand_values limit: 250 %}
+      {% assign brand_name = brand.name | default: brand.title | default: brand.label | default: brand.system.handle | replace: '-', ' ' | strip %}
+      {% assign brand_handle = brand.brand_handle | default: brand.system.handle | default: brand_name | handleize %}
+      {% if brand_name != blank %}
+        {% assign brand_option_count = brand_option_count | plus: 1 %}
+        <option value="{{ brand_handle | escape }}">{{ brand_name | escape }}</option>
+      {% endif %}
+    {% endfor %}
+  {% endcapture %}
+  {% assign has_brand_options = false %}
+  {% if brand_option_count > 0 %}
+    {% assign has_brand_options = true %}
+  {% endif %}
+
+  <div class="upgrade-assist__wrap">
+    <header class="upgrade-assist__header">
+      <h1 class="upgrade-assist__title">{{ section.settings.heading }}</h1>
+      {% if section.settings.subheading != blank %}
+        <p class="upgrade-assist__subheading">{{ section.settings.subheading }}</p>
+      {% endif %}
+    </header>
+
+    {% if customer %}
+      {% assign account_first_name = customer.first_name | default: '' | strip %}
+      {% assign account_last_name = customer.last_name | default: '' | strip %}
+      {% assign account_phone = customer.default_address.phone | default: customer.phone | default: '' | strip %}
+      {% assign account_profile_complete = true %}
+      {% if customer.email == blank or account_first_name == blank or account_last_name == blank or account_phone == blank %}
+        {% assign account_profile_complete = false %}
+      {% endif %}
+      {% assign account_update_url = routes.account_url | default: '/account' %}
+
+      <div class="upgrade-assist__card upgrade-assist__card--in">
+        <p class="upgrade-assist__status">Signed in as {{ customer.email }}</p>
+
+        {% if section.settings.logged_in_message != blank %}
+          <p class="upgrade-assist__message">{{ section.settings.logged_in_message }}</p>
+        {% endif %}
+
+        {% unless account_profile_complete %}
+          <div class="upgrade-assist__callout upgrade-assist__callout--warning">
+            <h2 class="upgrade-assist__calloutTitle">Complete your account before submitting</h2>
+            <p class="upgrade-assist__calloutText">
+              Upgrade Assist only accepts listings from customer accounts with complete contact details. Update your account first, then come back here to submit.
+            </p>
+            <ul class="upgrade-assist__calloutList">
+              {% if customer.email == blank %}
+                <li>Add an email address to your customer account.</li>
+              {% endif %}
+              {% if account_first_name == blank %}
+                <li>Add your first name to your customer account.</li>
+              {% endif %}
+              {% if account_last_name == blank %}
+                <li>Add your last name to your customer account.</li>
+              {% endif %}
+              {% if account_phone == blank %}
+                <li>Add a phone number to your customer account.</li>
+              {% endif %}
+            </ul>
+            <div class="upgrade-assist__actions">
+              <a href="{{ account_update_url }}" class="button button--primary">Complete account</a>
+            </div>
+          </div>
+        {% endunless %}
+
+        <div class="upgrade-assist__callout">
+          <h2 class="upgrade-assist__calloutTitle">How Upgrade Assist works</h2>
+          <p class="upgrade-assist__calloutText">
+            We help our buyers get old parts reviewed for possible listing visibility.
+          </p>
+          <ul class="upgrade-assist__calloutList">
+            <li>Submitting this form does not automatically publish or approve your item.</li>
+            <li>Every submission is reviewed first before anything can be shown publicly.</li>
+            <li>Uncapped PC helps facilitate visibility, but does not own your item.</li>
+          </ul>
+        </div>
+
+        {% if account_profile_complete %}
+        <form class="upgrade-assist__form" data-upgrade-assist-form novalidate>
+          <input type="hidden" name="status" value="pending_review">
+          <input type="hidden" name="seller_customer_id" value="{{ customer.id }}">
+          <input type="hidden" name="customer_email" value="{{ customer.email }}">
+          <input type="hidden" name="customer_first_name" value="{{ account_first_name }}">
+          <input type="hidden" name="customer_last_name" value="{{ account_last_name }}">
+          <input type="hidden" name="customer_phone" value="{{ account_phone }}">
+
+          <section class="upgrade-assist__formSection" aria-labelledby="upgrade-assist-section-identification-{{ section.id }}">
+            <div class="upgrade-assist__sectionHead">
+              <h2 id="upgrade-assist-section-identification-{{ section.id }}" class="upgrade-assist__sectionTitle">1. Item Identification</h2>
+              <p class="upgrade-assist__sectionText">Tell us whether the part already exists in the store catalog or needs a manual listing reference.</p>
+            </div>
+
+            <div class="upgrade-assist__field upgrade-assist__field--full" data-field="source_type">
+              <label class="upgrade-assist__label">Source type</label>
+              <div class="upgrade-assist__choiceRow">
+                <label class="upgrade-assist__choice">
+                  <input type="radio" name="source_type" value="catalog_reference" checked>
+                  <span>Catalog reference</span>
+                </label>
+                <label class="upgrade-assist__choice">
+                  <input type="radio" name="source_type" value="manual_entry">
+                  <span>Manual entry</span>
+                </label>
+              </div>
+              <p class="upgrade-assist__fieldHelp">Choose catalog reference if the original Uncapped PC product already exists in the store.</p>
+              <p class="upgrade-assist__fieldError" hidden></p>
+            </div>
+
+            <div class="upgrade-assist__field upgrade-assist__field--full" data-field="referenced_product" data-ua-when="catalog_reference">
+              <label class="upgrade-assist__label" for="upgrade-assist-product-search-{{ section.id }}">Referenced product</label>
+              <input type="hidden" name="referenced_product" value="">
+              <input type="hidden" name="referenced_product_title" value="">
+              <input type="hidden" name="referenced_product_url" value="">
+              <input
+                id="upgrade-assist-product-search-{{ section.id }}"
+                class="upgrade-assist__input"
+                type="search"
+                placeholder="Search the store catalog"
+                autocomplete="off"
+                data-upgrade-assist-product-search
+              >
+              <div class="upgrade-assist__searchResults" data-upgrade-assist-product-results hidden></div>
+              <div class="upgrade-assist__selectedProduct" data-upgrade-assist-selected-product hidden>
+                <span data-upgrade-assist-selected-product-text></span>
+                <button type="button" class="upgrade-assist__linkButton" data-upgrade-assist-clear-product>Clear</button>
+              </div>
+              <p class="upgrade-assist__fieldHelp">Pick the closest existing product if your part was originally bought from the store.</p>
+              <p class="upgrade-assist__fieldError" hidden></p>
+            </div>
+
+            <div class="upgrade-assist__field" data-field="manual_title" data-ua-when="manual_entry" hidden>
+              <label class="upgrade-assist__label" for="upgrade-assist-manual-title-{{ section.id }}">Manual title</label>
+              <input id="upgrade-assist-manual-title-{{ section.id }}" class="upgrade-assist__input" type="text" name="manual_title" placeholder="Example: MSI GeForce RTX 3070 Gaming X Trio">
+              <p class="upgrade-assist__fieldHelp">Use the clearest public-facing title for the part.</p>
+              <p class="upgrade-assist__fieldError" hidden></p>
+            </div>
+
+            <div class="upgrade-assist__field" data-field="manual_model" data-ua-when="manual_entry" hidden>
+              <label class="upgrade-assist__label" for="upgrade-assist-manual-model-{{ section.id }}">Manual model</label>
+              <input id="upgrade-assist-manual-model-{{ section.id }}" class="upgrade-assist__input" type="text" name="manual_model" placeholder="Model or SKU if known">
+              <p class="upgrade-assist__fieldHelp">Optional, but useful when the exact model matters.</p>
+              <p class="upgrade-assist__fieldError" hidden></p>
+            </div>
+
+            <div class="upgrade-assist__field upgrade-assist__field--full" data-field="external_product_url" data-ua-when="manual_entry" hidden>
+              <label class="upgrade-assist__label" for="upgrade-assist-product-url-{{ section.id }}">External product URL</label>
+              <input id="upgrade-assist-product-url-{{ section.id }}" class="upgrade-assist__input" type="url" name="external_product_url" inputmode="url" placeholder="https://">
+              <p class="upgrade-assist__fieldHelp">Optional reference link for the exact product page or manufacturer listing.</p>
+              <p class="upgrade-assist__fieldError" hidden></p>
+            </div>
+          </section>
+
+          <section class="upgrade-assist__formSection" aria-labelledby="upgrade-assist-section-brand-{{ section.id }}" data-ua-when="manual_entry" hidden>
+            <div class="upgrade-assist__sectionHead">
+              <h2 id="upgrade-assist-section-brand-{{ section.id }}" class="upgrade-assist__sectionTitle">2. Brand</h2>
+              <p class="upgrade-assist__sectionText">Manual entries should be tied to a known brand when possible so review is faster.</p>
+            </div>
+
+            {% if has_brand_options %}
+              <div class="upgrade-assist__field" data-field="brand_reference">
+                <label class="upgrade-assist__label" for="upgrade-assist-brand-reference-{{ section.id }}">Brand</label>
+                <select id="upgrade-assist-brand-reference-{{ section.id }}" class="upgrade-assist__select" name="brand_reference">
+                  {{ brand_options_markup }}
+                </select>
+                <p class="upgrade-assist__fieldHelp">This uses the existing brand data already exposed to the theme.</p>
+                <p class="upgrade-assist__fieldError" hidden></p>
+              </div>
+            {% else %}
+              <div class="upgrade-assist__field" data-field="brand_name_fallback">
+                <label class="upgrade-assist__label" for="upgrade-assist-brand-fallback-{{ section.id }}">Brand name</label>
+                <input id="upgrade-assist-brand-fallback-{{ section.id }}" class="upgrade-assist__input" type="text" name="brand_name_fallback" placeholder="Brand name">
+                <p class="upgrade-assist__fieldHelp">Brand metaobject options are not exposed here yet, so this is a temporary fallback.</p>
+                <p class="upgrade-assist__fieldError" hidden></p>
+              </div>
+            {% endif %}
+          </section>
+
+          <section class="upgrade-assist__formSection" aria-labelledby="upgrade-assist-section-seller-{{ section.id }}">
+            <div class="upgrade-assist__sectionHead">
+              <h2 id="upgrade-assist-section-seller-{{ section.id }}" class="upgrade-assist__sectionTitle">3. Seller Details</h2>
+              <p class="upgrade-assist__sectionText">Give the reviewer enough detail to assess condition, price target, and listing clarity.</p>
+            </div>
+
+            <div class="upgrade-assist__field" data-field="asking_price">
+              <label class="upgrade-assist__label" for="upgrade-assist-asking-price-{{ section.id }}">Asking price</label>
+              <div class="upgrade-assist__inputWithPrefix">
+                <span class="upgrade-assist__prefix">PHP</span>
+                <input id="upgrade-assist-asking-price-{{ section.id }}" class="upgrade-assist__input" type="number" name="asking_price" min="1" step="1" inputmode="numeric" placeholder="0">
+              </div>
+              <p class="upgrade-assist__fieldError" hidden></p>
+            </div>
+
+            <div class="upgrade-assist__field" data-field="condition_grade">
+              <label class="upgrade-assist__label" for="upgrade-assist-condition-{{ section.id }}">Condition grade</label>
+              <select id="upgrade-assist-condition-{{ section.id }}" class="upgrade-assist__select" name="condition_grade">
+                <option value="">Select condition</option>
+                <option value="like_new">Like new</option>
+                <option value="excellent">Excellent</option>
+                <option value="good">Good</option>
+                <option value="fair">Fair</option>
+                <option value="for_parts">For parts / issue-disclosed</option>
+              </select>
+              <p class="upgrade-assist__fieldError" hidden></p>
+            </div>
+
+            <div class="upgrade-assist__field" data-field="city_region">
+              <label class="upgrade-assist__label" for="upgrade-assist-city-region-{{ section.id }}">City / region</label>
+              <input id="upgrade-assist-city-region-{{ section.id }}" class="upgrade-assist__input" type="text" name="city_region" placeholder="City, province, or region">
+              <p class="upgrade-assist__fieldError" hidden></p>
+            </div>
+
+            <div class="upgrade-assist__field upgrade-assist__field--full" data-field="usage_notes">
+              <label class="upgrade-assist__label" for="upgrade-assist-usage-notes-{{ section.id }}">Usage notes</label>
+              <textarea id="upgrade-assist-usage-notes-{{ section.id }}" class="upgrade-assist__textarea" name="usage_notes" rows="4" placeholder="How long the part was used, what system it came from, and anything the reviewer should know."></textarea>
+              <p class="upgrade-assist__fieldError" hidden></p>
+            </div>
+
+            <div class="upgrade-assist__field upgrade-assist__field--full" data-field="issue_disclosures">
+              <label class="upgrade-assist__label" for="upgrade-assist-issues-{{ section.id }}">Issue disclosures</label>
+              <textarea id="upgrade-assist-issues-{{ section.id }}" class="upgrade-assist__textarea" name="issue_disclosures" rows="4" placeholder="List dents, scratches, missing accessories, intermittent issues, or repairs."></textarea>
+              <p class="upgrade-assist__fieldHelp">Leave blank only if there are no known issues to disclose.</p>
+              <p class="upgrade-assist__fieldError" hidden></p>
+            </div>
+          </section>
+
+          <section class="upgrade-assist__formSection" aria-labelledby="upgrade-assist-section-photos-{{ section.id }}">
+            <div class="upgrade-assist__sectionHead">
+              <h2 id="upgrade-assist-section-photos-{{ section.id }}" class="upgrade-assist__sectionTitle">4. Photos and Proof</h2>
+              <p class="upgrade-assist__sectionText">
+                {% if section.settings.submission_mode == 'local_app_direct' or section.settings.submission_mode == 'shopify_app_proxy' %}
+                  Photos and proof files are submitted with the review request and can be synced into Shopify for the approved listing record.
+                {% else %}
+                  You can stage photos and proof now. Preview-only mode keeps them inside the browser until a real submission route is used.
+                {% endif %}
+              </p>
+            </div>
+
+            <div class="upgrade-assist__field upgrade-assist__field--full" data-field="photos">
+              <label class="upgrade-assist__label" for="upgrade-assist-photos-{{ section.id }}">Photos</label>
+              <input id="upgrade-assist-photos-{{ section.id }}" class="upgrade-assist__input upgrade-assist__input--file" type="file" name="photos" accept="image/*" multiple>
+              <p class="upgrade-assist__fieldHelp">
+                {% if section.settings.submission_mode == 'local_app_direct' or section.settings.submission_mode == 'shopify_app_proxy' %}
+                  Selected files are submitted with the review request. The current listing record uses the primary approved photo in Shopify.
+                {% else %}
+                  Selected files are kept only in the browser preview for now. They are not uploaded in this MVP.
+                {% endif %}
+              </p>
+              <p class="upgrade-assist__fileMeta" data-file-meta-for="photos">No files selected.</p>
+              <p class="upgrade-assist__fieldError" hidden></p>
+            </div>
+
+            <div class="upgrade-assist__field" data-field="proof_of_purchase_status">
+              <label class="upgrade-assist__label" for="upgrade-assist-proof-status-{{ section.id }}">Proof of purchase status</label>
+              <select id="upgrade-assist-proof-status-{{ section.id }}" class="upgrade-assist__select" name="proof_of_purchase_status">
+                <option value="">Select proof status</option>
+                <option value="none">No proof available</option>
+                <option value="picture">Picture available</option>
+              </select>
+              <p class="upgrade-assist__fieldError" hidden></p>
+            </div>
+
+            <div class="upgrade-assist__field" data-field="proof_of_purchase_file" data-ua-proof="picture" hidden>
+              <label class="upgrade-assist__label" for="upgrade-assist-proof-file-{{ section.id }}">Proof of purchase file</label>
+              <input id="upgrade-assist-proof-file-{{ section.id }}" class="upgrade-assist__input upgrade-assist__input--file" type="file" name="proof_of_purchase_file" accept="image/*,.pdf">
+              <p class="upgrade-assist__fieldHelp">
+                {% if section.settings.submission_mode == 'local_app_direct' or section.settings.submission_mode == 'shopify_app_proxy' %}
+                  This file is submitted with the review request and can be stored in Shopify with the approved listing.
+                {% else %}
+                  This stays local to the browser until a real submission backend is connected.
+                {% endif %}
+              </p>
+              <p class="upgrade-assist__fileMeta" data-file-meta-for="proof_of_purchase_file">No file selected.</p>
+              <p class="upgrade-assist__fieldError" hidden></p>
+            </div>
+          </section>
+
+          <section class="upgrade-assist__formSection" aria-labelledby="upgrade-assist-section-warranty-{{ section.id }}">
+            <div class="upgrade-assist__sectionHead">
+              <h2 id="upgrade-assist-section-warranty-{{ section.id }}" class="upgrade-assist__sectionTitle">5. Warranty</h2>
+              <p class="upgrade-assist__sectionText">Capture both manufacturer warranty status and any personal warranty you plan to offer.</p>
+            </div>
+
+            <div class="upgrade-assist__field" data-field="still_in_warranty">
+              <label class="upgrade-assist__label" for="upgrade-assist-still-in-warranty-{{ section.id }}">Still in warranty</label>
+              <select id="upgrade-assist-still-in-warranty-{{ section.id }}" class="upgrade-assist__select" name="still_in_warranty">
+                <option value="">Select one</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+              <p class="upgrade-assist__fieldError" hidden></p>
+            </div>
+
+            <div class="upgrade-assist__field" data-field="personal_warranty_offered">
+              <label class="upgrade-assist__label" for="upgrade-assist-personal-warranty-{{ section.id }}">Personal warranty offered</label>
+              <select id="upgrade-assist-personal-warranty-{{ section.id }}" class="upgrade-assist__select" name="personal_warranty_offered">
+                <option value="">Select one</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+              <p class="upgrade-assist__fieldError" hidden></p>
+            </div>
+
+            <div class="upgrade-assist__field" data-field="personal_warranty_duration" data-ua-warranty="yes" hidden>
+              <label class="upgrade-assist__label" for="upgrade-assist-warranty-duration-{{ section.id }}">Personal warranty duration</label>
+              <input id="upgrade-assist-warranty-duration-{{ section.id }}" class="upgrade-assist__input" type="text" name="personal_warranty_duration" placeholder="Example: 7 days personal warranty">
+              <p class="upgrade-assist__fieldError" hidden></p>
+            </div>
+          </section>
+
+          <section class="upgrade-assist__formSection" aria-labelledby="upgrade-assist-section-contact-{{ section.id }}">
+            <div class="upgrade-assist__sectionHead">
+              <h2 id="upgrade-assist-section-contact-{{ section.id }}" class="upgrade-assist__sectionTitle">6. Contact and Agreement</h2>
+              <p class="upgrade-assist__sectionText">Tell the reviewer how you want to be contacted and confirm that the information is accurate.</p>
+            </div>
+
+            <div class="upgrade-assist__field" data-field="contact_preference">
+              <label class="upgrade-assist__label" for="upgrade-assist-contact-preference-{{ section.id }}">Contact preference</label>
+              <select id="upgrade-assist-contact-preference-{{ section.id }}" class="upgrade-assist__select" name="contact_preference">
+                <option value="">Select contact preference</option>
+                <option value="email">Email</option>
+                <option value="messenger">Messenger</option>
+                <option value="phone">Phone / SMS</option>
+              </select>
+              <p class="upgrade-assist__fieldHelp">Email uses your Shopify account email. Messenger and phone require a contact value below.</p>
+              <p class="upgrade-assist__fieldError" hidden></p>
+            </div>
+
+            <div class="upgrade-assist__field upgrade-assist__field--full" data-field="contact_value" data-ua-contact-detail hidden>
+              <label class="upgrade-assist__label" for="upgrade-assist-contact-value-{{ section.id }}" data-contact-value-label>Contact detail</label>
+              <input
+                id="upgrade-assist-contact-value-{{ section.id }}"
+                class="upgrade-assist__input"
+                type="text"
+                name="contact_value"
+                placeholder="Messenger handle or phone number"
+                data-contact-value-input
+              >
+              <p class="upgrade-assist__fieldHelp" data-contact-value-help>Enter the exact contact detail buyers should use after approval.</p>
+              <p class="upgrade-assist__fieldError" hidden></p>
+            </div>
+
+            <div class="upgrade-assist__field upgrade-assist__field--full upgrade-assist__field--checkbox" data-field="seller_agreement_accepted">
+              <label class="upgrade-assist__checkbox">
+                <input type="checkbox" name="seller_agreement_accepted" value="true">
+                <span>I confirm the details above are accurate and I understand this submission is only a review request, not an automatic listing.</span>
+              </label>
+              <p class="upgrade-assist__fieldError" hidden></p>
+            </div>
+          </section>
+
+          <div class="upgrade-assist__submitArea">
+            <div class="upgrade-assist__submitNote">
+              <strong>Current submission mode:</strong>
+              {% case section.settings.submission_mode %}
+                {% when 'local_app_direct' %}
+                  direct local app. This form sends data straight to your local Upgrade Assist app endpoint.
+                {% when 'shopify_app_proxy' %}
+                  Shopify app proxy. This form submits through the storefront proxy route.
+                {% else %}
+                  preview only. This theme version does not send data to a backend yet.
+              {% endcase %}
+            </div>
+            <div class="upgrade-assist__actions">
+              <button type="submit" class="button button--primary" data-upgrade-assist-submit disabled>
+                {% case section.settings.submission_mode %}
+                  {% when 'local_app_direct' %}
+                    Submit to local review app
+                  {% when 'shopify_app_proxy' %}
+                    Submit for review
+                  {% else %}
+                    Review submission preview
+                {% endcase %}
+              </button>
+              <button type="button" class="button button--secondary" data-upgrade-assist-reset>
+                Reset form
+              </button>
+            </div>
+            <p class="upgrade-assist__submitHint">
+              {% case section.settings.submission_mode %}
+                {% when 'local_app_direct' %}
+                  When valid, this sends the submission to your local Upgrade Assist app at the configured local endpoint.
+                {% when 'shopify_app_proxy' %}
+                  When valid, this sends the submission through the configured Shopify app proxy route.
+                {% else %}
+                  When valid, the form will generate a local payload preview and log it to the browser console for backend integration handoff.
+              {% endcase %}
+            </p>
+          </div>
+        </form>
+
+        <div class="upgrade-assist__preview" data-upgrade-assist-preview hidden>
+          <div class="upgrade-assist__previewHead">
+            <h2 class="upgrade-assist__sectionTitle" data-upgrade-assist-preview-title>
+              {% if section.settings.submission_mode == 'preview_only' %}
+                Submission preview
+              {% else %}
+                Submission result
+              {% endif %}
+            </h2>
+            <p class="upgrade-assist__previewText" data-upgrade-assist-preview-text>
+              {% if section.settings.submission_mode == 'local_app_direct' %}
+                This panel shows the local app response after submission.
+              {% elsif section.settings.submission_mode == 'shopify_app_proxy' %}
+                This panel shows the app proxy response after submission.
+              {% else %}
+                This is a local preview only. No files or listing data were submitted to Shopify from this form.
+              {% endif %}
+            </p>
+          </div>
+          <pre class="upgrade-assist__previewCode" data-upgrade-assist-preview-code></pre>
+        </div>
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="upgrade-assist__card upgrade-assist__card--out">
+        {% if section.settings.logged_out_message != blank %}
+          <p class="upgrade-assist__message">{{ section.settings.logged_out_message }}</p>
+        {% endif %}
+
+        <div class="upgrade-assist__actions">
+          <a href="{{ login_url }}" class="button button--primary">
+            Sign in to continue
+          </a>
+
+          {% if routes.account_register_url != blank %}
+            <a href="{{ routes.account_register_url }}" class="button button--secondary">
+              Create account
+            </a>
+          {% endif %}
+        </div>
+
+        <div class="upgrade-assist__note">
+          <small>
+            After signing in, you will be returned to this page.
+          </small>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</section>
+
+<style>
+  .upgrade-assist__wrap {
+    max-width: 920px;
+    margin: 0 auto;
+  }
+
+  .upgrade-assist__header {
+    margin-bottom: 2rem;
+    text-align: center;
+  }
+
+  .upgrade-assist__title {
+    margin: 0 0 0.75rem;
+  }
+
+  .upgrade-assist__subheading {
+    margin: 0;
+    opacity: 0.8;
+  }
+
+  .upgrade-assist__card {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 18px;
+    padding: 2rem;
+    background: rgb(var(--color-background));
+  }
+
+  .upgrade-assist__status {
+    margin-top: 0;
+    font-size: 0.95rem;
+    opacity: 0.75;
+  }
+
+  .upgrade-assist__message {
+    margin-bottom: 1.5rem;
+  }
+
+  .upgrade-assist__callout {
+    margin-bottom: 1.75rem;
+    padding: 1rem 1.1rem;
+    border-radius: 16px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.025);
+  }
+
+  .upgrade-assist__callout--warning {
+    border-color: rgba(181, 137, 0, 0.28);
+    background: rgba(255, 246, 223, 0.9);
+    color: rgb(107, 82, 0);
+  }
+
+  .upgrade-assist__calloutTitle {
+    margin: 0 0 0.5rem;
+    font-size: 1.1rem;
+  }
+
+  .upgrade-assist__calloutText {
+    margin: 0 0 0.75rem;
+  }
+
+  .upgrade-assist__calloutList {
+    margin: 0;
+    padding-left: 1.2rem;
+  }
+
+  .upgrade-assist__form {
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  .upgrade-assist__formSection {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    padding: 1.25rem;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 16px;
+  }
+
+  .upgrade-assist__sectionHead,
+  .upgrade-assist__field--full {
+    grid-column: 1 / -1;
+  }
+
+  .upgrade-assist__sectionTitle {
+    margin: 0 0 0.35rem;
+    font-size: 1.05rem;
+  }
+
+  .upgrade-assist__sectionText,
+  .upgrade-assist__fieldHelp,
+  .upgrade-assist__submitHint,
+  .upgrade-assist__previewText,
+  .upgrade-assist__note {
+    color: rgba(0, 0, 0, 0.68);
+  }
+
+  .upgrade-assist__sectionText {
+    margin: 0;
+  }
+
+  .upgrade-assist__field {
+    min-width: 0;
+  }
+
+  .upgrade-assist__label {
+    display: block;
+    margin-bottom: 0.45rem;
+    font-weight: 600;
+  }
+
+  .upgrade-assist__input,
+  .upgrade-assist__select,
+  .upgrade-assist__textarea {
+    width: 100%;
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    border-radius: 12px;
+    background: #fff;
+    padding: 0.85rem 0.95rem;
+    font: inherit;
+    line-height: 1.4;
+  }
+
+  .upgrade-assist__textarea {
+    resize: vertical;
+    min-height: 120px;
+  }
+
+  .upgrade-assist__inputWithPrefix {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: stretch;
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+  }
+
+  .upgrade-assist__inputWithPrefix .upgrade-assist__input {
+    border: 0;
+    border-radius: 0;
+  }
+
+  .upgrade-assist__prefix {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 0.95rem;
+    background: rgba(0, 0, 0, 0.04);
+    font-weight: 600;
+  }
+
+  .upgrade-assist__choiceRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .upgrade-assist__choice,
+  .upgrade-assist__checkbox {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+  }
+
+  .upgrade-assist__choice {
+    padding: 0.8rem 0.9rem;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  .upgrade-assist__choice input,
+  .upgrade-assist__checkbox input {
+    margin-top: 0.2rem;
+  }
+
+  .upgrade-assist__fieldHelp,
+  .upgrade-assist__fileMeta,
+  .upgrade-assist__submitHint,
+  .upgrade-assist__previewText {
+    margin: 0.45rem 0 0;
+    font-size: 0.92rem;
+  }
+
+  .upgrade-assist__fieldError {
+    margin: 0.45rem 0 0;
+    color: #b42318;
+    font-size: 0.92rem;
+  }
+
+  .upgrade-assist__field[data-invalid="true"] .upgrade-assist__input,
+  .upgrade-assist__field[data-invalid="true"] .upgrade-assist__select,
+  .upgrade-assist__field[data-invalid="true"] .upgrade-assist__textarea,
+  .upgrade-assist__field[data-invalid="true"] .upgrade-assist__inputWithPrefix {
+    border-color: rgba(180, 35, 24, 0.5);
+  }
+
+  .upgrade-assist__searchResults {
+    margin-top: 0.6rem;
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .upgrade-assist__searchResult {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+    padding: 0.8rem 0.9rem;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    background: #fff;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .upgrade-assist__searchResultTitle {
+    display: block;
+    font-weight: 600;
+  }
+
+  .upgrade-assist__searchResultMeta {
+    display: block;
+    color: rgba(0, 0, 0, 0.68);
+    font-size: 0.92rem;
+  }
+
+  .upgrade-assist__selectedProduct {
+    margin-top: 0.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.8rem 0.9rem;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.04);
+  }
+
+  .upgrade-assist__linkButton {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  .upgrade-assist__submitArea {
+    display: grid;
+    gap: 0.9rem;
+    padding: 1.25rem;
+    border-radius: 16px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  .upgrade-assist__submitNote {
+    padding: 0.9rem 1rem;
+    border-radius: 12px;
+    background: rgba(255, 246, 223, 0.9);
+    border: 1px solid rgba(181, 137, 0, 0.28);
+    color: rgb(107, 82, 0);
+  }
+
+  .upgrade-assist__actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .upgrade-assist__actions .button[disabled] {
+    opacity: 0.55;
+    pointer-events: none;
+  }
+
+  .upgrade-assist__preview {
+    margin-top: 1.5rem;
+    padding: 1.25rem;
+    border-radius: 16px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.03);
+  }
+
+  .upgrade-assist__previewCode {
+    margin: 0.9rem 0 0;
+    padding: 1rem;
+    border-radius: 14px;
+    background: #111;
+    color: #f5f5f5;
+    overflow: auto;
+    font: 400 12px/1.55 Consolas, Monaco, monospace;
+  }
+
+  @media screen and (max-width: 749px) {
+    .upgrade-assist__card {
+      padding: 1.25rem;
+    }
+
+    .upgrade-assist__formSection {
+      grid-template-columns: 1fr;
+      padding: 1rem;
+    }
+
+    .upgrade-assist__actions {
+      flex-direction: column;
+    }
+  }
+</style>
+
+{% if customer %}
+  <script>
+    (() => {
+      const root = document.querySelector('[data-upgrade-assist-section="{{ section.id }}"]');
+      if (!root || root.__upgradeAssistBound) return;
+      root.__upgradeAssistBound = true;
+
+      const form = root.querySelector('[data-upgrade-assist-form]');
+      if (!form) return;
+
+      const hasBrandOptions = {{ has_brand_options | json }};
+      const customerId = {{ customer.id | json }};
+      const customerEmail = {{ customer.email | json }};
+      const customerPhone = {{ customer.default_address.phone | default: customer.phone | json }};
+      const submissionMode = {{ section.settings.submission_mode | json }};
+      const localAppSubmitUrl = {{ section.settings.local_app_submit_url | json }};
+      const proxySubmitPath = {{ section.settings.proxy_submit_path | json }};
+      const sourceInputs = Array.from(form.querySelectorAll('input[name="source_type"]'));
+      const submitBtn = form.querySelector('[data-upgrade-assist-submit]');
+      const resetBtn = form.querySelector('[data-upgrade-assist-reset]');
+      const previewWrap = root.querySelector('[data-upgrade-assist-preview]');
+      const previewTitle = root.querySelector('[data-upgrade-assist-preview-title]');
+      const previewText = root.querySelector('[data-upgrade-assist-preview-text]');
+      const previewCode = root.querySelector('[data-upgrade-assist-preview-code]');
+      const productSearchInput = form.querySelector('[data-upgrade-assist-product-search]');
+      const productResults = form.querySelector('[data-upgrade-assist-product-results]');
+      const selectedProductWrap = form.querySelector('[data-upgrade-assist-selected-product]');
+      const selectedProductText = form.querySelector('[data-upgrade-assist-selected-product-text]');
+      const clearProductBtn = form.querySelector('[data-upgrade-assist-clear-product]');
+      const referencedProductInput = form.querySelector('input[name="referenced_product"]');
+      const referencedProductTitleInput = form.querySelector('input[name="referenced_product_title"]');
+      const referencedProductUrlInput = form.querySelector('input[name="referenced_product_url"]');
+      const photosInput = form.querySelector('input[name="photos"]');
+      const proofInput = form.querySelector('input[name="proof_of_purchase_file"]');
+      const contactValueInput = form.querySelector('[data-contact-value-input]');
+      const contactValueLabel = form.querySelector('[data-contact-value-label]');
+      const contactValueHelp = form.querySelector('[data-contact-value-help]');
+
+      let submittedOnce = false;
+      let productSearchTimer = null;
+      let productSearchNonce = 0;
+      const defaultPreviewTitle = previewTitle ? previewTitle.textContent : "";
+      const defaultPreviewText = previewText ? previewText.textContent : "";
+
+      function sourceType_() {
+        const selected = sourceInputs.find((input) => input.checked);
+        return selected ? String(selected.value || "").trim() : "catalog_reference";
+      }
+
+      function integrationState_() {
+        if (submissionMode === "local_app_direct") return "theme_local_app_direct";
+        if (submissionMode === "shopify_app_proxy") return "theme_shopify_app_proxy";
+        return "theme_preview_only";
+      }
+
+      function submitEndpoint_() {
+        if (submissionMode === "local_app_direct") {
+          return String(localAppSubmitUrl || "").trim();
+        }
+
+        if (submissionMode === "shopify_app_proxy") {
+          const raw = String(proxySubmitPath || "").trim();
+          return raw || "/apps/upgrade-assist/submit";
+        }
+
+        return "";
+      }
+
+      function setPreviewOutput_(title, text, value) {
+        if (!previewWrap || !previewCode) return;
+        previewWrap.hidden = false;
+        if (previewTitle) previewTitle.textContent = title || defaultPreviewTitle;
+        if (previewText) previewText.textContent = text || defaultPreviewText;
+        previewCode.textContent =
+          typeof value === "string" ? value : JSON.stringify(value == null ? {} : value, null, 2);
+        previewWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      function setFieldError_(fieldName, message) {
+        const field = form.querySelector('[data-field="' + fieldName + '"]');
+        if (!field) return;
+        const error = field.querySelector(".upgrade-assist__fieldError");
+        field.dataset.invalid = message ? "true" : "false";
+        if (!error) return;
+        if (message) {
+          error.hidden = false;
+          error.textContent = message;
+        } else {
+          error.hidden = true;
+          error.textContent = "";
+        }
+      }
+
+      function clearAllErrors_() {
+        form.querySelectorAll("[data-field]").forEach((field) => {
+          delete field.dataset.invalid;
+          const error = field.querySelector(".upgrade-assist__fieldError");
+          if (error) {
+            error.hidden = true;
+            error.textContent = "";
+          }
+        });
+      }
+
+      function showHideConditional_(selector, shouldShow) {
+        form.querySelectorAll(selector).forEach((el) => {
+          el.hidden = !shouldShow;
+        });
+      }
+
+      function syncConditionalUi_() {
+        const source = sourceType_();
+        const proofStatus = String(form.elements.proof_of_purchase_status.value || "").trim();
+        const personalWarranty = String(form.elements.personal_warranty_offered.value || "").trim();
+        const contactPreference = String(form.elements.contact_preference.value || "").trim();
+
+        showHideConditional_('[data-ua-when="catalog_reference"]', source === "catalog_reference");
+        showHideConditional_('[data-ua-when="manual_entry"]', source === "manual_entry");
+        showHideConditional_('[data-ua-proof="picture"]', proofStatus === "picture");
+        showHideConditional_('[data-ua-warranty="yes"]', personalWarranty === "yes");
+        showHideConditional_('[data-ua-contact-detail]', contactPreference === "phone" || contactPreference === "messenger");
+
+        if (contactValueInput && contactValueLabel && contactValueHelp) {
+          if (contactPreference === "phone") {
+            contactValueInput.placeholder = "09XXXXXXXXX or full phone number";
+            if (!String(contactValueInput.value || "").trim() && customerPhone) {
+              contactValueInput.value = String(customerPhone || "").trim();
+            }
+            contactValueLabel.textContent = "Phone number";
+            contactValueHelp.textContent = "Enter the phone number buyers should use for calls or SMS.";
+          } else if (contactPreference === "messenger") {
+            contactValueInput.placeholder = "Messenger profile link or handle";
+            contactValueLabel.textContent = "Messenger handle or link";
+            contactValueHelp.textContent = "Enter the Messenger link or handle buyers should use.";
+          } else {
+            contactValueInput.placeholder = "Messenger handle or phone number";
+            contactValueLabel.textContent = "Contact detail";
+            contactValueHelp.textContent = "Email uses your Shopify account email. Other methods need a contact value here.";
+            if (contactPreference !== "phone" && contactPreference !== "messenger") {
+              contactValueInput.value = "";
+            }
+          }
+        }
+
+        if (source !== "catalog_reference" && productResults) {
+          productResults.hidden = true;
+          productResults.innerHTML = "";
+        }
+      }
+
+      function updateFileMeta_(input, key) {
+        const target = form.querySelector('[data-file-meta-for="' + key + '"]');
+        if (!target) return;
+        const files = Array.from(input && input.files ? input.files : []);
+        if (!files.length) {
+          target.textContent = "No files selected.";
+          return;
+        }
+        target.textContent = files.map((file) => file.name).join(", ");
+      }
+
+      function setSelectedProduct_(item) {
+        const title = item && item.title ? String(item.title) : "";
+        const url = item && item.url ? String(item.url) : "";
+        const id = item && item.id ? String(item.id) : "";
+        const vendor = item && item.vendor ? String(item.vendor) : "";
+
+        referencedProductInput.value = id;
+        referencedProductTitleInput.value = title;
+        referencedProductUrlInput.value = url;
+
+        if (productSearchInput) productSearchInput.value = title;
+        if (selectedProductWrap && selectedProductText) {
+          if (title) {
+            selectedProductWrap.hidden = false;
+            selectedProductText.textContent = vendor ? title + " (" + vendor + ")" : title;
+          } else {
+            selectedProductWrap.hidden = true;
+            selectedProductText.textContent = "";
+          }
+        }
+
+        if (productResults) {
+          productResults.hidden = true;
+          productResults.innerHTML = "";
+        }
+      }
+
+      function clearSelectedProduct_() {
+        setSelectedProduct_({ title: "", url: "", id: "", vendor: "" });
+        if (productSearchInput) productSearchInput.value = "";
+      }
+
+      function renderProductResults_(items, nonce) {
+        if (!productResults || nonce !== productSearchNonce) return;
+        productResults.innerHTML = "";
+
+        if (!items.length) {
+          const empty = document.createElement("div");
+          empty.className = "upgrade-assist__searchResult";
+          empty.innerHTML = '<span class="upgrade-assist__searchResultMeta">No catalog products matched that search.</span>';
+          productResults.appendChild(empty);
+          productResults.hidden = false;
+          return;
+        }
+
+        items.forEach((item) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "upgrade-assist__searchResult";
+          button.innerHTML =
+            '<span><span class="upgrade-assist__searchResultTitle"></span><span class="upgrade-assist__searchResultMeta"></span></span>' +
+            '<span class="upgrade-assist__searchResultMeta">Select</span>';
+          button.querySelector(".upgrade-assist__searchResultTitle").textContent = item.title || "";
+          button.querySelector(".upgrade-assist__searchResultMeta").textContent = item.vendor || item.product_type || "";
+          button.addEventListener("click", () => {
+            setSelectedProduct_(item);
+            validateForm_(submittedOnce);
+          });
+          productResults.appendChild(button);
+        });
+
+        productResults.hidden = false;
+      }
+
+      async function fetchProductResults_(query, nonce) {
+        const endpoint =
+          window.Shopify && window.Shopify.routes && window.Shopify.routes.root
+            ? window.Shopify.routes.root
+            : "/";
+
+        const url =
+          endpoint.replace(/\/?$/, "/") +
+          "search/suggest.json?q=" +
+          encodeURIComponent(query) +
+          "&resources[type]=product&resources[limit]=6&resources[options][unavailable_products]=last";
+
+        const response = await fetch(url, {
+          credentials: "same-origin",
+          headers: { Accept: "application/json" }
+        });
+
+        if (!response.ok) throw new Error("predictive-search-failed");
+
+        const json = await response.json();
+        const products =
+          json &&
+          json.resources &&
+          json.resources.results &&
+          Array.isArray(json.resources.results.products)
+            ? json.resources.results.products
+            : [];
+
+        const normalized = products.map((item) => ({
+          id: item.id || "",
+          title: item.title || "",
+          url: item.url || "",
+          vendor: item.vendor || "",
+          product_type: item.product_type || ""
+        }));
+
+        renderProductResults_(normalized, nonce);
+      }
+
+      function scheduleProductSearch_() {
+        if (!productSearchInput || sourceType_() !== "catalog_reference") return;
+
+        const query = String(productSearchInput.value || "").trim();
+        if (query.length < 2) {
+          if (productResults) {
+            productResults.hidden = true;
+            productResults.innerHTML = "";
+          }
+          return;
+        }
+
+        if (productSearchTimer) window.clearTimeout(productSearchTimer);
+        const nonce = ++productSearchNonce;
+
+        productSearchTimer = window.setTimeout(() => {
+          fetchProductResults_(query, nonce).catch(() => {
+            if (!productResults || nonce !== productSearchNonce) return;
+            productResults.hidden = false;
+            productResults.innerHTML =
+              '<div class="upgrade-assist__searchResult"><span class="upgrade-assist__searchResultMeta">Product lookup is temporarily unavailable. Try again.</span></div>';
+          });
+        }, 220);
+      }
+
+      function validateForm_(showErrors) {
+        const errors = {};
+        const source = sourceType_();
+        const askingPrice = Number(form.elements.asking_price.value || 0);
+        const externalUrl = String(form.elements.external_product_url.value || "").trim();
+        const proofStatus = String(form.elements.proof_of_purchase_status.value || "").trim();
+        const personalWarranty = String(form.elements.personal_warranty_offered.value || "").trim();
+
+        if (!source) {
+          errors.source_type = "Choose how the item should be identified.";
+        }
+
+        if (source === "catalog_reference" && !String(referencedProductInput.value || "").trim()) {
+          errors.referenced_product = "Select a product from the store catalog.";
+        }
+
+        if (source === "manual_entry") {
+          if (!String(form.elements.manual_title.value || "").trim()) {
+            errors.manual_title = "Enter the item title.";
+          }
+
+          if (hasBrandOptions) {
+            if (!String(form.elements.brand_reference.value || "").trim()) {
+              errors.brand_reference = "Select the item brand.";
+            }
+          } else if (!String(form.elements.brand_name_fallback.value || "").trim()) {
+            errors.brand_name_fallback = "Enter the item brand.";
+          }
+
+          if (externalUrl) {
+            try {
+              new URL(externalUrl);
+            } catch (error) {
+              errors.external_product_url = "Enter a valid product URL.";
+            }
+          }
+        }
+
+        if (!Number.isFinite(askingPrice) || askingPrice <= 0) {
+          errors.asking_price = "Enter a valid asking price greater than zero.";
+        }
+
+        if (!String(form.elements.condition_grade.value || "").trim()) {
+          errors.condition_grade = "Choose a condition grade.";
+        }
+
+        if (!String(form.elements.city_region.value || "").trim()) {
+          errors.city_region = "Enter your city or region.";
+        }
+
+        if (!String(form.elements.usage_notes.value || "").trim()) {
+          errors.usage_notes = "Add usage notes for the reviewer.";
+        }
+
+        if (!photosInput || !photosInput.files || !photosInput.files.length) {
+          errors.photos = "Add at least one photo of the item.";
+        }
+
+        if (!proofStatus) {
+          errors.proof_of_purchase_status = "Choose a proof of purchase status.";
+        }
+
+        if (proofStatus === "picture" && (!proofInput || !proofInput.files || !proofInput.files.length)) {
+          errors.proof_of_purchase_file = "Add the proof of purchase file.";
+        }
+
+        if (!String(form.elements.still_in_warranty.value || "").trim()) {
+          errors.still_in_warranty = "Choose whether the item is still in warranty.";
+        }
+
+        if (!personalWarranty) {
+          errors.personal_warranty_offered = "Choose whether you are offering a personal warranty.";
+        }
+
+        if (personalWarranty === "yes" && !String(form.elements.personal_warranty_duration.value || "").trim()) {
+          errors.personal_warranty_duration = "Enter the personal warranty duration.";
+        }
+
+        if (!String(form.elements.contact_preference.value || "").trim()) {
+          errors.contact_preference = "Choose how you want to be contacted.";
+        }
+
+        if (
+          String(form.elements.contact_preference.value || "").trim() === "email" &&
+          !String(customerEmail || "").trim()
+        ) {
+          errors.contact_preference = "Your Shopify account email is missing. Choose another contact method or update your account first.";
+        }
+
+        if (
+          ["phone", "messenger"].includes(String(form.elements.contact_preference.value || "").trim()) &&
+          !String(form.elements.contact_value.value || "").trim()
+        ) {
+          errors.contact_value =
+            String(form.elements.contact_preference.value || "").trim() === "phone"
+              ? "Enter the phone number buyers should use."
+              : "Enter the Messenger handle or link buyers should use.";
+        }
+
+        if (!form.elements.seller_agreement_accepted.checked) {
+          errors.seller_agreement_accepted = "You need to confirm the seller agreement.";
+        }
+
+        if (showErrors) {
+          clearAllErrors_();
+          Object.keys(errors).forEach((field) => setFieldError_(field, errors[field]));
+        }
+
+        const isValid = Object.keys(errors).length === 0;
+        if (submitBtn) submitBtn.disabled = !isValid;
+        return { isValid, errors };
+      }
+
+      function buildPayload_() {
+        const source = sourceType_();
+        const proofStatus = String(form.elements.proof_of_purchase_status.value || "").trim();
+        const personalWarranty = String(form.elements.personal_warranty_offered.value || "").trim();
+        return {
+          status: "pending_review",
+          seller_customer_id: customerId,
+          source_type: source,
+          referenced_product: source === "catalog_reference" ? String(referencedProductInput.value || "").trim() : "",
+          referenced_product_title:
+            source === "catalog_reference" ? String(referencedProductTitleInput.value || "").trim() : "",
+          referenced_product_url:
+            source === "catalog_reference" ? String(referencedProductUrlInput.value || "").trim() : "",
+          manual_title: source === "manual_entry" ? String(form.elements.manual_title.value || "").trim() : "",
+          manual_model: source === "manual_entry" ? String(form.elements.manual_model.value || "").trim() : "",
+          external_product_url:
+            source === "manual_entry" ? String(form.elements.external_product_url.value || "").trim() : "",
+          brand_reference:
+            source === "manual_entry" && hasBrandOptions ? String(form.elements.brand_reference.value || "").trim() : "",
+          brand_name_fallback:
+            source === "manual_entry" && !hasBrandOptions
+              ? String(form.elements.brand_name_fallback.value || "").trim()
+              : "",
+          asking_price: Number(form.elements.asking_price.value || 0),
+          condition_grade: String(form.elements.condition_grade.value || "").trim(),
+          city_region: String(form.elements.city_region.value || "").trim(),
+          usage_notes: String(form.elements.usage_notes.value || "").trim(),
+          issue_disclosures: String(form.elements.issue_disclosures.value || "").trim(),
+          photos: Array.from(photosInput && photosInput.files ? photosInput.files : []).map((file) => file.name),
+          proof_of_purchase_status: proofStatus,
+          proof_of_purchase_file:
+            proofStatus === "picture"
+              ? Array.from(proofInput && proofInput.files ? proofInput.files : []).map((file) => file.name)[0] || ""
+              : "",
+          personal_warranty_offered: personalWarranty,
+          personal_warranty_duration:
+            personalWarranty === "yes" ? String(form.elements.personal_warranty_duration.value || "").trim() : "",
+          still_in_warranty: String(form.elements.still_in_warranty.value || "").trim(),
+          contact_preference: String(form.elements.contact_preference.value || "").trim(),
+          contact_value: String(form.elements.contact_value.value || "").trim(),
+          seller_agreement_accepted: !!form.elements.seller_agreement_accepted.checked,
+          customer_email: String(customerEmail || "").trim(),
+          integration_state: integrationState_()
+        };
+      }
+
+      function buildSubmissionFormData_() {
+        const formData = new FormData(form);
+        formData.set("seller_customer_id", String(customerId || "").trim());
+        if (customerEmail) {
+          formData.set("customer_email", String(customerEmail || "").trim());
+        }
+        formData.set("integration_state", integrationState_());
+        return formData;
+      }
+
+      function resetPreview_() {
+        if (!previewWrap || !previewCode) return;
+        previewWrap.hidden = true;
+        previewCode.textContent = "";
+        if (previewTitle) previewTitle.textContent = defaultPreviewTitle;
+        if (previewText) previewText.textContent = defaultPreviewText;
+      }
+
+      function handleInputChange_() {
+        syncConditionalUi_();
+        updateFileMeta_(photosInput, "photos");
+        updateFileMeta_(proofInput, "proof_of_purchase_file");
+        validateForm_(submittedOnce);
+      }
+
+      if (productSearchInput) {
+        productSearchInput.addEventListener("input", () => {
+          if (
+            String(productSearchInput.value || "").trim() !== String(referencedProductTitleInput.value || "").trim()
+          ) {
+            referencedProductInput.value = "";
+            referencedProductTitleInput.value = "";
+            referencedProductUrlInput.value = "";
+            if (selectedProductWrap) selectedProductWrap.hidden = true;
+          }
+          scheduleProductSearch_();
+          validateForm_(submittedOnce);
+        });
+
+        productSearchInput.addEventListener("focus", scheduleProductSearch_);
+      }
+
+      if (clearProductBtn) {
+        clearProductBtn.addEventListener("click", () => {
+          clearSelectedProduct_();
+          validateForm_(submittedOnce);
+        });
+      }
+
+      document.addEventListener("click", (event) => {
+        if (!root.contains(event.target) && productResults) {
+          productResults.hidden = true;
+        }
+      });
+
+      sourceInputs.forEach((input) => {
+        input.addEventListener("change", () => {
+          handleInputChange_();
+          resetPreview_();
+        });
+      });
+
+      form.querySelectorAll("input, select, textarea").forEach((input) => {
+        input.addEventListener("change", handleInputChange_);
+        input.addEventListener("input", handleInputChange_);
+      });
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        submittedOnce = true;
+        const validation = validateForm_(true);
+        if (!validation.isValid) return;
+
+        const payload = buildPayload_();
+        if (submissionMode === "preview_only") {
+          setPreviewOutput_(
+            "Submission preview",
+            "This is a local preview only. No files or listing data were submitted to Shopify from this form.",
+            payload
+          );
+
+          try {
+            console.log("Upgrade Assist submission preview", payload);
+          } catch (error) {}
+          return;
+        }
+
+        const endpoint = submitEndpoint_();
+        if (!endpoint) {
+          setPreviewOutput_(
+            "Submission failed",
+            "The submission endpoint is not configured for this mode.",
+            { mode: submissionMode }
+          );
+          return;
+        }
+
+        const previousLabel = submitBtn ? submitBtn.textContent : "";
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = "Submitting...";
+        }
+
+        try {
+          const response = await fetch(endpoint, {
+            method: "POST",
+            body: buildSubmissionFormData_(),
+            headers: {
+              Accept: "application/json"
+            },
+            mode: submissionMode === "local_app_direct" ? "cors" : "same-origin",
+            credentials: submissionMode === "shopify_app_proxy" ? "same-origin" : "omit"
+          });
+
+          const contentType = String(response.headers.get("content-type") || "");
+          const result = contentType.includes("application/json")
+            ? await response.json()
+            : { ok: response.ok, text: await response.text() };
+
+          if (!response.ok || !result || result.ok === false) {
+            throw {
+              status: response.status,
+              result: result || { ok: false, error: "unknown_error" }
+            };
+          }
+
+          setPreviewOutput_(
+            "Submission received",
+            submissionMode === "local_app_direct"
+              ? "The local Upgrade Assist app stored this listing as pending review. Open your local admin page to approve or reject it."
+              : "The Upgrade Assist app proxy accepted the submission.",
+            result
+          );
+
+          try {
+            console.log("Upgrade Assist submission sent", {
+              endpoint,
+              payload,
+              result
+            });
+          } catch (error) {}
+
+          form.reset();
+          submittedOnce = false;
+          clearAllErrors_();
+          clearSelectedProduct_();
+          syncConditionalUi_();
+          updateFileMeta_(photosInput, "photos");
+          updateFileMeta_(proofInput, "proof_of_purchase_file");
+          validateForm_(false);
+        } catch (error) {
+          const details = error && error.result ? error.result : { message: "Submission failed." };
+          setPreviewOutput_(
+            "Submission failed",
+            submissionMode === "local_app_direct"
+              ? "The browser could not hand this form to the local Upgrade Assist app. Make sure the app is running on localhost and reachable from this browser."
+              : "The Upgrade Assist backend did not accept the submission.",
+            details
+          );
+        } finally {
+          if (submitBtn) {
+            submitBtn.textContent = previousLabel;
+            validateForm_(false);
+          }
+        }
+      });
+
+      if (resetBtn) {
+        resetBtn.addEventListener("click", () => {
+          form.reset();
+          submittedOnce = false;
+          clearAllErrors_();
+          clearSelectedProduct_();
+          syncConditionalUi_();
+          updateFileMeta_(photosInput, "photos");
+          updateFileMeta_(proofInput, "proof_of_purchase_file");
+          resetPreview_();
+          validateForm_(false);
+        });
+      }
+
+      syncConditionalUi_();
+      updateFileMeta_(photosInput, "photos");
+      updateFileMeta_(proofInput, "proof_of_purchase_file");
+      validateForm_(false);
+    })();
+  </script>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Upgrade Assist gate",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Upgrade Assist"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "Subheading",
+      "default": "We help our buyers sell their old parts."
+    },
+    {
+      "type": "textarea",
+      "id": "logged_out_message",
+      "label": "Logged out message",
+      "default": "Sign in to submit your old component for review. We will help you create a listing if it qualifies."
+    },
+    {
+      "type": "textarea",
+      "id": "logged_in_message",
+      "label": "Logged in message",
+      "default": "You are signed in. Fill out the review form below so the Upgrade Assist team can assess your part."
+    },
+    {
+      "type": "select",
+      "id": "submission_mode",
+      "label": "Submission mode",
+      "default": "local_app_direct",
+      "options": [
+        {
+          "value": "local_app_direct",
+          "label": "Direct local app"
+        },
+        {
+          "value": "preview_only",
+          "label": "Preview only"
+        },
+        {
+          "value": "shopify_app_proxy",
+          "label": "Shopify app proxy"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "local_app_submit_url",
+      "label": "Local app submit URL",
+      "default": "http://localhost:3000/api/submissions"
+    },
+    {
+      "type": "text",
+      "id": "proxy_submit_path",
+      "label": "Shopify app proxy submit path",
+      "default": "/apps/upgrade-assist/submit"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Upgrade Assist gate"
+    }
+  ]
+}
+{% endschema %}

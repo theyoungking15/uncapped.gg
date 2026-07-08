@@ -5,7 +5,7 @@ import type { Shop } from "@/lib/types";
 
 const NAV_ITEMS = [
   { href: "/app", label: "Overview" },
-  { href: "/app/products", label: "Products" },
+  { href: "/app/products", label: "My Listings" },
   { href: "/app/imports", label: "Imports" },
   { href: "/app/quotes", label: "Quotes" },
   { href: "/app/settings", label: "Settings" }

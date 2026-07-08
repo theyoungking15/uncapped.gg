@@ -1,0 +1,18 @@
+{
+  "sections": {
+    "main": {
+      "type": "my-builds-page",
+      "settings": {
+        "eyebrow": "Customer Account",
+        "heading": "My Builds",
+        "subheading": "This page is already connected to customer-owned saved-build records. It will list only the builds that belong to the signed-in customer.",
+        "proxy_base_path": "/apps/upgrade-assist",
+        "builder_page_url": "",
+        "section_width": "page-width"
+      }
+    }
+  },
+  "order": [
+    "main"
+  ]
+}

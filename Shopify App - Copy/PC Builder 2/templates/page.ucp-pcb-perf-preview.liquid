@@ -1,0 +1,22 @@
+{% layout none %}
+{%- comment -%}
+  Outputs benchmark rows as JSON for the PC Builder Performance Preview.
+  Update the metaobject type and field keys to match your benchmark metaobject definition.
+{%- endcomment -%}
+
+{%- assign PERF_TYPE = 'benchmark_entry' -%}
+{%- assign mo = shop.metaobjects[PERF_TYPE] -%}
+{%- assign rows = mo.values | default: blank -%}
+
+[
+{%- for r in rows -%}
+  {
+    "cpuHandle": {{ r.cpu_handle.value | json }},
+    "gpuHandle": {{ r.gpu_handle.value | json }},
+    "res": {{ r.resolution.value | json }},
+    "preset": {{ r.preset.value | json }},
+    "game": {{ r.game.value | json }},
+    "fps": {{ r.fps.value | default: 0 | plus: 0 | json }}
+  }{% unless forloop.last %},{% endunless %}
+{%- endfor -%}
+]

@@ -14,7 +14,7 @@ export default async function DashboardPage() {
       <header className="pageHead">
         <div>
           <h1>{shop.name}</h1>
-          <p>Release 1 dashboard for products, imports, and quote requests.</p>
+          <p>Release 1 dashboard for listings, imports, and quote requests.</p>
         </div>
         <Link className="button buttonPrimary" href={`/shop/${shop.slug}/pricelist`} target="_blank">
           Open price list
@@ -22,7 +22,7 @@ export default async function DashboardPage() {
       </header>
       <section className="grid3">
         <div className="stat">
-          <span>Active products</span>
+          <span>Active listings</span>
           <strong>{stats.productCount}</strong>
         </div>
         <div className="stat">
@@ -37,11 +37,9 @@ export default async function DashboardPage() {
       <section className="panel" style={{ marginTop: 18 }}>
         <h2>Release 1 workflow</h2>
         <p className="muted">
-          Import products from a published Google Sheet, publish your price list, then receive quote requests in the
-          quote inbox.
+          Add or import listings, publish your seller profile, then receive quote requests in the quote inbox.
         </p>
       </section>
     </>
   );
 }
-

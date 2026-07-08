@@ -17,6 +17,7 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "dist/**",
+      "Shopify App - Copy/**",
       "next-env.d.ts"
     ]
   },

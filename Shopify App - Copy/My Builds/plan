@@ -1,0 +1,21 @@
+I want you to make these changes, let's prioritize changing what the my builds look like first
+
+Create a 2 column for the my builds page
+
+1st column
+- The first column consists of all of the builds that the customer has
+- The column is only 30% of the page
+- And it should only show the name of the build
+- Once it has been clicked it would open up the contents of the build So what they have clicked and the components that are inside of the said build
+-  Also what it once it has been hovered on it should show that Just show a change of color
+
+2nd column
+- This will be the card that consists of the build
+- It should list down the components, image, product name, Price, And a buy button
+- If it has a variant it should also list down below the product name of the variant
+- list down on the 2nd column also the total price
+- also place these details updated at/ created at/ quote code/ total items, but make sure it is not overwhelming, make it look subtle like less than secondary
+- At the top of the uh second column it should have these buttons open build share Rename archive and delete. Do not show an archive not unless it is on the archives folder. also include a screenshot button. so that when it is pressed it should function as the create screenshot button on the pc builder.
+
+
+include what you think is necessary for this page.

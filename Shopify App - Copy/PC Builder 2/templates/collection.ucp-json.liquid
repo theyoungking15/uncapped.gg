@@ -1,0 +1,152 @@
+{%- layout none -%}
+{%- paginate collection.products by 50 -%}
+
+{
+  "collection_handle": {{ collection.handle | json }},
+  "page": {{ paginate.current_page | json }},
+  "pages": {{ paginate.pages | json }},
+  "next_page": {% if paginate.next %}{{ paginate.current_page | plus: 1 | json }}{% else %}null{% endif %},
+  "products": [
+    {%- assign first_visible_product = true -%}
+    {%- for product in collection.products -%}
+      {%- assign v = product.selected_or_first_available_variant -%}
+      {%- assign pc_builder_enabled = product.metafields.custom.pc_builder_enabled.value -%}
+      {%- unless pc_builder_enabled == false -%}
+      {%- unless first_visible_product -%},{%- endunless -%}
+      {%- assign first_visible_product = false -%}
+
+      {
+        "productId": {{ product.id | json }},
+        "variantId": {{ v.id | json }},
+        "handle": {{ product.handle | json }},
+        "title": {{ product.title | json }},
+        "vendor": {{ product.vendor | json }},
+        "url": {{ product.url | json }},
+        "available": {{ product.available | json }},
+        "pc_builder_enabled": {% if pc_builder_enabled == false %}false{% elsif pc_builder_enabled == true %}true{% else %}null{% endif %},
+        "image": {% if product.featured_image %}{{ product.featured_image | image_url: width: 240 | json }}{% else %}null{% endif %},
+
+        "price": {{ v.price | divided_by: 100.0 | json }},
+        "comparePrice": {% if v.compare_at_price %}{{ v.compare_at_price | divided_by: 100.0 | json }}{% else %}null{% endif %},
+
+        "hasOnlyDefaultVariant": {{ product.has_only_default_variant | json }},
+        "variantCount": {{ product.variants.size | json }},
+
+        "bench_cpu_handle": {{ product.metafields.custom.bench_cpu_handle.value | json }},
+        "bench_gpu_handle": {{ product.metafields.custom.bench_gpu_handle.value | json }},
+
+        "options": [
+          {%- for opt in product.options_with_values -%}
+            {
+              "name": {{ opt.name | json }},
+              "values": {{ opt.values | json }}
+            }{%- unless forloop.last -%},{%- endunless -%}
+          {%- endfor -%}
+        ],
+
+        "variants": [
+          {%- for pv in product.variants -%}
+            {
+              "id": {{ pv.id | json }},
+              "available": {{ pv.available | json }},
+              "title": {{ pv.title | json }},
+              "option1": {{ pv.option1 | json }},
+              "option2": {{ pv.option2 | json }},
+              "option3": {{ pv.option3 | json }},
+              "price": {{ pv.price | divided_by: 100.0 | json }},
+              "comparePrice": {% if pv.compare_at_price %}{{ pv.compare_at_price | divided_by: 100.0 | json }}{% else %}null{% endif %}
+            }{%- unless forloop.last -%},{%- endunless -%}
+          {%- endfor -%}
+        ],
+
+        "specs": {
+          "cpu_core_count": {{ product.metafields.custom.cpu_core_count.value | json }},
+          "cpu_thread_count": {{ product.metafields.custom.cpu_thread_count.value | json }},
+          "cpu_base_clock": {{ product.metafields.custom.cpu_base_clock.value | json }},
+          "cpu_boost_clock": {{ product.metafields.custom.cpu_boost_clock.value | json }},
+          "tdp": {{ product.metafields.custom.tdp.value | json }},
+
+          "pcie_x16_slots": {{ product.metafields.custom.pcie_x16_slots.value | json }},
+          "m_2_slots": {{ product.metafields.custom.m_2_slots.value | json }},
+          "motherboard_wifi": {{ product.metafields.custom.motherboard_wifi.value | json }},
+          "socket_chipset": {{ product.metafields.custom.socket_chipset.value | json }},
+          "ram_slots": {{ product.metafields.custom.ram_slots.value | json }},
+
+          "ram_speed": {{ product.metafields.ram.speed.value | json }},
+          "ram_cas_latency": {{ product.metafields.ram.cas_latency.value | json }},
+          "ram_module_capacity": {{ product.metafields.ram.module_capacity.value | json }},
+          "ram_module_count": {{ product.metafields.ram.module_count.value | json }},
+
+          "read_mbps": {{ product.metafields.custom.read_mbps.value | json }},
+          "write_mbps": {{ product.metafields.custom.write_mbps.value | json }},
+          "m_2_form_factor": {{ product.metafields.custom.m_2_form_factor.value | json }},
+          "pcie_generation": {{ product.metafields.custom.pcie_generation.value | json }},
+
+          "gpu_chipset": {{ product.metafields.gpu.chipset.value | json }},
+          "gpu_vram": {{ product.metafields.gpu.vram.value | json }},
+          "gpu_core_clock": {{ product.metafields.gpu.core_clock.value | json }},
+          "gpu_boost_clock": {{ product.metafields.gpu.boost_clock.value | json }},
+          "gpu_length": {{ product.metafields.gpu.length.value | json }},
+          "gpu_board_partner": {{ product.metafields.gpu.board_partner.value | json }},
+
+          "psu_certification": {{ product.metafields.custom.certification.value | json }},
+          "psu_watts": {{ product.metafields.custom.watts.value | json }},
+          "psu_modularity": {{ product.metafields.custom.modularity.value | json }},
+
+          "psu_tier": {% if product.metafields.shopify['energy-efficiency-class'].value != blank %}
+            {{ product.metafields.shopify['energy-efficiency-class'].value | json }}
+          {% else %}
+            null
+          {% endif %},
+
+          "ssd_device_interface": {% if product.metafields.shopify['device-interface'].value != blank %}
+            {{ product.metafields.shopify['device-interface'].value | json }}
+          {% else %}
+            null
+          {% endif %},
+
+          "cpu_cooler_type": {% if product.metafields.custom.cpu_cooler_type.value != blank %}
+            {{ product.metafields.custom.cpu_cooler_type.value | json }}
+          {% elsif product.metafields.custom.cpu_cooler_types.value != blank %}
+            {{ product.metafields.custom.cpu_cooler_types.value | json }}
+          {% else %}
+            null
+          {% endif %},
+          "cpu_cooler_types": {% if product.metafields.custom.cpu_cooler_types.value != blank %}
+            {{ product.metafields.custom.cpu_cooler_types.value | json }}
+          {% elsif product.metafields.custom.cpu_cooler_type.value != blank %}
+            {{ product.metafields.custom.cpu_cooler_type.value | json }}
+          {% else %}
+            null
+          {% endif %},
+          "cooler_radiator_size": {{ product.metafields.custom.cooler_radiator_size.value | json }},
+          "cooler_height": {{ product.metafields.custom.cooler_height.value | json }},
+          "supported_motherboard": {{ product.metafields.custom.supported_motherboard.value | json }},
+          "gpu_support": {{ product.metafields.custom.gpu_support.value | json }}
+        },
+
+        "compat": {
+          "processor_sockets": [
+            {%- assign sockets = product.metafields.shopify['processor-socket'].value -%}
+            {%- if sockets != blank -%}
+              {%- for s in sockets -%}
+                {{ s.name | default: s.label | default: s.title | default: s.handle | json }}{% unless forloop.last %},{% endunless %}
+              {%- endfor -%}
+            {%- endif -%}
+          ],
+          "memory_technology": [
+            {%- assign mems = product.metafields.shopify['memory-technology'].value -%}
+            {%- if mems != blank -%}
+              {%- for m in mems -%}
+                {{ m.name | default: m.label | default: m.title | default: m.handle | json }}{% unless forloop.last %},{% endunless %}
+              {%- endfor -%}
+            {%- endif -%}
+          ]
+        }
+      }
+      {%- endunless -%}
+    {%- endfor -%}
+  ]
+}
+
+{%- endpaginate -%}

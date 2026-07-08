@@ -1,0 +1,1089 @@
+{%- comment -%}
+  File: sections/ucp-bundle-hub.liquid
+
+  UCP Bundle Hub.
+  Reads metaobject type: bundle_hub_entry
+  Goal: show list of CPU bundles that link to each bundle page.
+
+  Data used (do not change data model):
+  - cpu_handle (text)
+  - cpu_product (product reference)
+  - bundle_page (page reference)
+  - is_active (boolean)
+  Optional later:
+  - sort_order (integer)
+  - title_override (text)
+  - subtitle (text)
+  - badge (text)
+  - processor_socket (reference list)
+  - cpu_generation (text)
+
+  Styling hooks.
+  Prince can adjust spacing in CSS variables and classes below without touching logic.
+{%- endcomment -%}
+
+{%- liquid
+  assign mo = shop.metaobjects['bundle_hub_entry']
+  assign entries = blank
+  if mo and mo.values
+    assign entries = mo.values
+  endif
+
+  comment
+    Bundle rules metaobject.
+    Used only to compute CPU+motherboard bundle price range and savings range on the hub cards.
+    If your type key differs, update it here.
+  endcomment
+  assign rules_mo = shop.metaobjects['cpu_motherboard_bundle']
+  if rules_mo == blank
+    assign rules_mo = shop.metaobjects['cpu_motherboard_bundle_rule']
+  endif
+  assign bundle_rules = blank
+  if rules_mo and rules_mo.values
+    assign bundle_rules = rules_mo.values
+  endif
+
+  assign wrapper_class = 'ucp-hub--full'
+  if section.settings.width == 'page'
+    assign wrapper_class = 'ucp-hub--page'
+  endif
+
+  assign packed = ''
+  assign total_active = 0
+  assign default_sort = section.settings.default_sort | default: 'recommended' | downcase
+-%}
+
+{%- if entries != blank and entries.size > 0 -%}
+
+<div
+  class="ucp-hub {{ wrapper_class }}"
+  data-ucp-hub
+  data-ucp-source-page-type="bundle_list"
+  data-ucp-source-campaign="{{ page.handle | default: 'bundle-masterlist' | escape }}"
+  data-ucp-source-content="bundle_masterlist"
+  data-ucp-hub-json="{{ request.path }}?view=ucp-bundle-hub-json"
+  data-ucp-hub-rules-json="/pages/ucp-pcb-bundle-rules?view=ucp-pcb-bundle-rules-json"
+  style="
+    --ucp-hub-max-w: {{ section.settings.max_width | default: 1200 | plus: 0 }}px;
+    --ucp-hub-pad-d: {{ section.settings.pad_desktop | default: 24 | plus: 0 }}px;
+    --ucp-hub-pad-m: {{ section.settings.pad_mobile | default: 16 | plus: 0 }}px;
+    --ucp-hub-gap: {{ section.settings.grid_gap | default: 14 | plus: 0 }}px;
+    --ucp-hub-cols: {{ section.settings.columns_desktop | default: 2 | plus: 0 }};
+    --ucp-hub-card-radius: 16px;
+    --ucp-hub-card-bg: #fff;
+    --ucp-hub-card-border: rgba(0,0,0,.10);
+    --ucp-hub-card-shadow: 0 10px 26px rgba(0,0,0,.06);
+  "
+>
+  <div class="ucp-hub__inner">
+    <header class="ucp-hub__head">
+      <h1 class="ucp-hub__title">{{ section.settings.title | default: 'Bundle Masterlist' }}</h1>
+      {%- if section.settings.intro != blank -%}
+        <div class="ucp-hub__intro">{{ section.settings.intro }}</div>
+      {%- endif -%}
+    </header>
+
+    {%- if section.settings.show_filters -%}
+      <div class="ucp-hub__controls" data-ucp-hub-controls>
+        <div class="ucp-hub__controls-row">
+          <input
+            class="ucp-hub__search"
+            type="search"
+            placeholder="Search CPU bundles"
+            aria-label="Search CPU bundles"
+            data-ucp-hub-search>
+
+          <select class="ucp-hub__select" data-ucp-hub-sort aria-label="Sort bundles">
+            <option value="recommended" {% if default_sort == 'recommended' %}selected{% endif %}>Recommended</option>
+            <option value="title_az" {% if default_sort == 'title_az' %}selected{% endif %}>Title A to Z</option>
+            <option value="title_za" {% if default_sort == 'title_za' %}selected{% endif %}>Title Z to A</option>
+          </select>
+        </div>
+
+        <div class="ucp-hub__controls-row">
+          <select class="ucp-hub__select" data-ucp-hub-filter="brand" aria-label="Filter by brand">
+            <option value="">All brands</option>
+          </select>
+
+          <select class="ucp-hub__select" data-ucp-hub-filter="socket" aria-label="Filter by socket">
+            <option value="">All sockets</option>
+          </select>
+
+          <select class="ucp-hub__select" data-ucp-hub-filter="gen" aria-label="Filter by CPU generation">
+            <option value="">All generations</option>
+          </select>
+
+          <div class="ucp-hub__count" data-ucp-hub-count></div>
+        </div>
+      </div>
+    {%- endif -%}
+
+    {%- comment -%}
+      Build cards.
+      Pack with sort key so Liquid can sort without changing your data model.
+    {%- endcomment -%}
+
+    {%- for e in entries -%}
+      {%- liquid
+        assign active_flag = e.is_active
+        unless active_flag == true or active_flag == 'true' or active_flag == 1 or active_flag == '1'
+          continue
+        endunless
+
+        assign total_active = total_active | plus: 1
+
+        assign cpu_p = e.cpu_product
+        if cpu_p != blank and cpu_p.value != blank
+          assign cpu_p = cpu_p.value
+        endif
+
+        assign page_ref = e.bundle_page
+        if page_ref != blank and page_ref.value != blank
+          assign page_ref = page_ref.value
+        endif
+
+        assign url = ''
+        if page_ref != blank and page_ref.url != blank
+          assign url = page_ref.url
+        endif
+        if url == ''
+          continue
+        endif
+
+        assign title = e.title_override | default: '' | strip
+        if title == '' and cpu_p != blank
+          assign title = cpu_p.title | default: '' | strip
+        endif
+        if title == ''
+          assign title = e.cpu_handle | default: '' | strip
+          if title != ''
+            assign title = title | replace: '-', ' '
+          endif
+        endif
+        if title == ''
+          assign title = 'CPU Bundle'
+        endif
+
+        assign subtitle = e.subtitle | default: '' | strip
+        assign badge = e.badge | default: '' | strip
+
+        assign cpu_thumb = ''
+        if cpu_p and cpu_p.featured_image
+          assign cpu_thumb = cpu_p.featured_image | image_url: width: 120
+        endif
+
+        comment
+          Compute bundle price range (CPU + motherboard - discount) from rules metaobject.
+          Shows a range when multiple motherboards exist for the CPU.
+          Assumes discount_amount is in pesos. Converts to cents by *100.
+
+          IMPORTANT:
+          Shopify Liquid for-loops are capped at 50 iterations.
+          We scan bundle_rules in chunks of 50 using limit + offset so we don't miss later rules.
+        endcomment
+        assign found_rules = 0
+        assign min_bundle_cents = blank
+        assign max_bundle_cents = blank
+        assign min_save_cents = blank
+        assign max_save_cents = blank
+
+        assign rules_count = 0
+        if bundle_rules != blank
+          assign rules_count = bundle_rules.size | default: 0 | plus: 0
+        endif
+
+        assign max_chunk = 0
+        if rules_count > 0
+          assign max_chunk = rules_count | minus: 1 | divided_by: 50
+        endif
+
+        if bundle_rules != blank and cpu_p != blank
+          for chunk in (0..max_chunk)
+            assign off = chunk | times: 50
+
+            for r in bundle_rules limit: 50 offset: off
+              assign r_active = r.is_active
+              unless r_active == true or r_active == 'true' or r_active == 1 or r_active == '1'
+                continue
+              endunless
+
+              assign r_cpu_p = r.cpu_product
+              if r_cpu_p != blank and r_cpu_p.value != blank
+                assign r_cpu_p = r_cpu_p.value
+              endif
+              if r_cpu_p == blank
+                continue
+              endif
+
+              unless r_cpu_p.id == cpu_p.id
+                continue
+              endunless
+
+              assign r_cpu_v = r.cpu_variant
+              if r_cpu_v != blank and r_cpu_v.value != blank
+                assign r_cpu_v = r_cpu_v.value
+              endif
+
+              assign r_mb_p = r.motherboard_product
+              if r_mb_p != blank and r_mb_p.value != blank
+                assign r_mb_p = r_mb_p.value
+              endif
+
+              assign r_mb_v = r.motherboard_variant
+              if r_mb_v != blank and r_mb_v.value != blank
+                assign r_mb_v = r_mb_v.value
+              endif
+
+              assign cpu_cents = 0
+              if r_cpu_v != blank and r_cpu_v.price != blank
+                assign cpu_cents = r_cpu_v.price | plus: 0
+              elsif cpu_p.price_min != blank
+                assign cpu_cents = cpu_p.price_min | plus: 0
+              endif
+
+              assign mb_cents = 0
+              if r_mb_v != blank and r_mb_v.price != blank
+                assign mb_cents = r_mb_v.price | plus: 0
+              elsif r_mb_p != blank and r_mb_p.price_min != blank
+                assign mb_cents = r_mb_p.price_min | plus: 0
+              endif
+
+              assign disc_pesos = r.discount_amount | default: 0 | plus: 0
+              assign disc_cents = disc_pesos | times: 100
+
+              assign bundle_cents = cpu_cents | plus: mb_cents | minus: disc_cents
+              if bundle_cents < 0
+                assign bundle_cents = 0
+              endif
+
+              assign found_rules = found_rules | plus: 1
+
+              if min_bundle_cents == blank or bundle_cents < min_bundle_cents
+                assign min_bundle_cents = bundle_cents
+              endif
+              if max_bundle_cents == blank or bundle_cents > max_bundle_cents
+                assign max_bundle_cents = bundle_cents
+              endif
+
+              if min_save_cents == blank or disc_cents < min_save_cents
+                assign min_save_cents = disc_cents
+              endif
+              if max_save_cents == blank or disc_cents > max_save_cents
+                assign max_save_cents = disc_cents
+              endif
+            endfor
+          endfor
+        endif
+
+        comment
+          Brand extraction from cpu_product.metafields.relations.brand
+        endcomment
+        assign brand_entry = blank
+        assign brand_name = ''
+        assign brand_key = ''
+        if cpu_p and cpu_p.metafields.relations and cpu_p.metafields.relations.brand
+          assign brand_entry = cpu_p.metafields.relations.brand.value | default: cpu_p.metafields.relations.brand
+        endif
+        if brand_entry != blank
+          assign brand_name = brand_entry.name | default: '' | strip
+          if brand_entry.brand_handle != blank
+            assign brand_key = brand_entry.brand_handle | strip | downcase
+          elsif brand_name != ''
+            assign brand_key = brand_name | handleize | downcase
+          endif
+        endif
+
+        comment
+          Socket extraction. processor_socket is a reference list.
+          We store a single joined key and label for filtering.
+        endcomment
+        assign socket_key = ''
+        assign socket_label = ''
+        assign sockets = e.processor_socket
+        if sockets != blank and sockets.value != blank
+          assign sockets = sockets.value
+        endif
+        if sockets != blank
+          for s in sockets
+            assign s_label = s.name | default: s.title | default: ''
+            if s_label == '' and s.system and s.system.handle
+              assign s_label = s.system.handle
+            endif
+            if s_label != ''
+              assign socket_label = s_label | strip
+              assign socket_key = socket_label | handleize | downcase
+              break
+            endif
+          endfor
+        endif
+
+        assign gen = e.cpu_generation | default: '' | strip
+        assign gen_key = ''
+        if gen != ''
+          assign gen_key = gen | handleize | downcase
+        endif
+
+        assign sort_num = e.sort_order | default: 999999 | plus: 0
+        assign sort_key_num = sort_num | append: ''
+        assign sort_key_num = '000000' | append: sort_key_num
+        assign sort_key_num = sort_key_num | slice: -6, 6
+
+        assign sort_key = sort_key_num
+        if default_sort == 'title_az' or default_sort == 'title_za'
+          assign sort_key = title | strip | downcase
+        endif
+      -%}
+
+      {%- capture card -%}
+        <a
+          class="ucp-hub-card"
+          href="{{ url }}"
+          data-title="{{ title | escape }}"
+          data-brand-key="{{ brand_key }}"
+          data-brand-name="{{ brand_name | escape }}"
+          data-socket-key="{{ socket_key }}"
+          data-socket-label="{{ socket_label | escape }}"
+          data-gen-key="{{ gen_key }}"
+          data-gen-label="{{ gen | escape }}"
+          data-sort-order="{{ sort_num }}"
+          data-ucp-track-click
+          data-ucp-track-cta="bundle_hub_card"
+          data-ucp-track-page-type="bundle_list"
+        >
+          <div class="ucp-hub-card__top">
+            {%- if cpu_thumb != '' -%}
+              <img class="ucp-hub-card__cpu" src="{{ cpu_thumb }}" loading="lazy" alt="{{ title | escape }}">
+            {%- else -%}
+              <div class="ucp-hub-card__cpu ucp-hub-card__cpu--ph"></div>
+            {%- endif -%}
+
+            <div class="ucp-hub-card__meta">
+              {%- if badge != '' -%}
+                <div class="ucp-hub-card__badge">{{ badge }}</div>
+              {%- endif -%}
+
+              <div class="ucp-hub-card__title">{{ title }}</div>
+
+              {%- if found_rules > 0 and min_bundle_cents != blank -%}
+                <div class="ucp-hub-card__price">
+                  <div class="ucp-hub-card__price-row">
+                    <span class="ucp-hub-card__price-label">Bundle price</span>
+                    <span class="ucp-hub-card__price-value">
+                      {%- if max_bundle_cents != blank and max_bundle_cents > min_bundle_cents -%}
+                        {{ min_bundle_cents | money }} to {{ max_bundle_cents | money }}
+                      {%- else -%}
+                        {{ min_bundle_cents | money }}
+                      {%- endif -%}
+                    </span>
+                  </div>
+
+                  {%- if max_save_cents != blank and max_save_cents > 0 -%}
+                    <span class="ucp-hub-card__save">
+                      Save&nbsp;
+                      {%- if min_save_cents != blank and max_save_cents > min_save_cents -%}
+                        {{ min_save_cents | money }} to {{ max_save_cents | money }}
+                      {%- else -%}
+                        {{ max_save_cents | money }}
+                      {%- endif -%}
+                    </span>
+                  {%- endif -%}
+                </div>
+              {%- endif -%}
+
+              {%- if subtitle != '' -%}
+                <div class="ucp-hub-card__sub">{{ subtitle }}</div>
+              {%- endif -%}
+
+              <div class="ucp-hub-card__chips">
+                {%- if brand_name != '' -%}
+                  <span class="ucp-hub-chip">{{ brand_name }}</span>
+                {%- endif -%}
+                {%- if socket_label != '' -%}
+                  <span class="ucp-hub-chip">{{ socket_label }}</span>
+                {%- endif -%}
+                {%- if gen != '' -%}
+                  <span class="ucp-hub-chip">{{ gen }}</span>
+                {%- endif -%}
+              </div>
+            </div>
+          </div>
+
+          <div class="ucp-hub-card__cta">
+            <span class="ucp-hub-card__cta-text">View bundle</span>
+          </div>
+        </a>
+      {%- endcapture -%}
+
+      {%- capture pack -%}{{ sort_key }}::{{ card }}{%- endcapture -%}
+      {%- if packed == '' -%}
+        {%- assign packed = pack -%}
+      {%- else -%}
+        {%- assign packed = packed | append: '||' | append: pack -%}
+      {%- endif -%}
+    {%- endfor -%}
+
+    {%- assign rows = packed | split: '||' | sort -%}
+    {%- if default_sort == 'title_za' -%}
+      {%- assign rows = rows | reverse -%}
+    {%- endif -%}
+
+    {%- if rows.size == 0 or packed == '' -%}
+      <div class="ucp-hub__empty">No active bundles yet.</div>
+    {%- else -%}
+      <div class="ucp-hub-grid" data-ucp-hub-grid>
+        {%- for r in rows -%}
+          {%- if r == blank -%}{% continue %}{%- endif -%}
+          {%- assign parts = r | split: '::' -%}
+          {%- if parts.size < 2 -%}{% continue %}{%- endif -%}
+          {{ parts[1] }}
+        {%- endfor -%}
+      </div>
+
+      <div class="ucp-hub__empty ucp-hub__empty--filtered" data-ucp-hub-empty style="display:none;">
+        No bundles match your filters.
+      </div>
+    {%- endif -%}
+  </div>
+</div>
+
+<style>
+  .ucp-hub { width: 100%; }
+  .ucp-hub__inner {
+    padding-inline: var(--ucp-hub-pad-d);
+    box-sizing: border-box;
+  }
+  .ucp-hub--page .ucp-hub__inner {
+    max-width: var(--ucp-hub-max-w);
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .ucp-hub__head { margin: 10px 0 14px; }
+  .ucp-hub__title { margin: 0; font-size: 1.6rem; line-height: 1.15; }
+  .ucp-hub__intro { margin-top: 6px; opacity: .75; }
+
+  .ucp-hub__controls {
+    border: 1px solid rgba(0,0,0,.08);
+    border-radius: 14px;
+    padding: 12px;
+    margin: 14px 0;
+    background: rgba(255,255,255,.85);
+    box-shadow: 0 8px 20px rgba(0,0,0,.04);
+  }
+  .ucp-hub__controls-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .ucp-hub__search {
+    flex: 1 1 260px;
+    min-width: 200px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(0,0,0,.14);
+    background: #fff;
+  }
+  .ucp-hub__select {
+    flex: 0 0 auto;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(0,0,0,.14);
+    background: #fff;
+  }
+  .ucp-hub__count { margin-left: auto; opacity: .7; font-size: .9rem; }
+
+  .ucp-hub-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--ucp-hub-cols), minmax(0, 1fr));
+    gap: var(--ucp-hub-gap);
+  }
+
+  .ucp-hub-card {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    border: 1px solid var(--ucp-hub-card-border);
+    border-radius: var(--ucp-hub-card-radius);
+    padding: 16px;
+    background: var(--ucp-hub-card-bg);
+    box-shadow: 0 2px 10px rgba(0,0,0,.03);
+    transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  }
+  .ucp-hub-card:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--ucp-hub-card-shadow);
+    border-color: rgba(0,0,0,.20);
+  }
+
+  .ucp-hub-card__top { display: flex; gap: 12px; align-items: flex-start; }
+  .ucp-hub-card__cpu {
+    width: 54px;
+    height: 54px;
+    border-radius: 12px;
+    object-fit: cover;
+    border: 1px solid rgba(0,0,0,.08);
+    background: #fff;
+    flex: 0 0 auto;
+  }
+  .ucp-hub-card__cpu--ph { background: rgba(0,0,0,.04); }
+
+  .ucp-hub-card__meta { min-width: 0; flex: 1; }
+  .ucp-hub-card__badge {
+    display: inline-flex;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(0,0,0,.12);
+    font-size: .72rem;
+    opacity: .8;
+    margin-bottom: 6px;
+  }
+  .ucp-hub-card__title { font-weight: 800; font-size: 1.05rem; line-height: 1.2; }
+
+  .ucp-hub-card__price {
+    margin-top: 6px;
+    font-size: .92rem;
+    opacity: .92;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .ucp-hub-card__price-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: baseline;
+  }
+  .ucp-hub-card__price-label {
+    font-size: .65rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    opacity: .65;
+  }
+  .ucp-hub-card__price-value {
+    font-weight: 750;
+  }
+  .ucp-hub-card__save { font-weight: 650; opacity: .85; }
+
+  .ucp-hub-card__sub { margin-top: 4px; opacity: .75; font-size: .9rem; }
+
+  .ucp-hub-card__chips { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .ucp-hub-chip {
+    display: inline-flex;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(0,0,0,.10);
+    font-size: .78rem;
+    opacity: .85;
+  }
+
+  .ucp-hub-card__cta { margin-top: 12px; display: flex; justify-content: flex-end; }
+  .ucp-hub-card__cta-text {
+    font-weight: 700;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(0,0,0,.14);
+    background: #fff;
+  }
+  .ucp-hub-card:hover .ucp-hub-card__cta-text {
+    background: #000;
+    color: #fff;
+    border-color: #000;
+  }
+
+  .ucp-hub__empty {
+    padding: 12px;
+    border: 1px dashed rgba(0,0,0,.20);
+    border-radius: 14px;
+    opacity: .8;
+    margin-top: 14px;
+  }
+
+  @media (max-width: 720px) {
+    .ucp-hub__inner { padding-inline: var(--ucp-hub-pad-m); }
+    .ucp-hub-grid { grid-template-columns: 1fr; }
+    .ucp-hub__count { margin-left: 0; }
+  }
+</style>
+
+<script>
+(function () {
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function formatMoney(cents) {
+    if (window.Shopify && typeof window.Shopify.formatMoney === 'function') {
+      return window.Shopify.formatMoney(cents);
+    }
+    var currency =
+      (window.Shopify &&
+        window.Shopify.currency &&
+        window.Shopify.currency.active) ||
+      'PHP';
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: currency,
+        minimumFractionDigits: 2
+      }).format((cents || 0) / 100);
+    } catch (err) {
+      return ((cents || 0) / 100) + ' ' + currency;
+    }
+  }
+
+  function uniqSorted(mapObj) {
+    return Object.keys(mapObj).sort(function (a, b) {
+      return (mapObj[a] || '').localeCompare(mapObj[b] || '');
+    });
+  }
+
+  function initHub(root) {
+    if (!root || root.__ucpHubInit) return;
+    root.__ucpHubInit = true;
+
+    var grid = root.querySelector('[data-ucp-hub-grid]');
+    var cards = Array.prototype.slice.call(root.querySelectorAll('.ucp-hub-card'));
+    if (!grid) return;
+
+    var controls = root.querySelector('[data-ucp-hub-controls]');
+    var searchEl = root.querySelector('[data-ucp-hub-search]');
+    var sortEl = root.querySelector('[data-ucp-hub-sort]');
+    var countEl = root.querySelector('[data-ucp-hub-count]');
+    var emptyEl = root.querySelector('[data-ucp-hub-empty]');
+    var brandEl = root.querySelector('[data-ucp-hub-filter="brand"]');
+    var socketEl = root.querySelector('[data-ucp-hub-filter="socket"]');
+    var genEl = root.querySelector('[data-ucp-hub-filter="gen"]');
+    var jsonEndpoint = root.getAttribute('data-ucp-hub-json');
+    var rulesEndpoint = root.getAttribute('data-ucp-hub-rules-json');
+
+    function buildOptions() {
+      if (!controls) return;
+
+      var brandMap = {};
+      var socketMap = {};
+      var genMap = {};
+
+      cards.forEach(function (c) {
+        var bk = (c.getAttribute('data-brand-key') || '').toLowerCase();
+        var bn = c.getAttribute('data-brand-name') || '';
+        if (bk && bn) brandMap[bk] = bn;
+
+        var sk = (c.getAttribute('data-socket-key') || '').toLowerCase();
+        var sl = c.getAttribute('data-socket-label') || '';
+        if (sk && sl) socketMap[sk] = sl;
+
+        var gk = (c.getAttribute('data-gen-key') || '').toLowerCase();
+        var gl = c.getAttribute('data-gen-label') || '';
+        if (gk && gl) genMap[gk] = gl;
+      });
+
+      function fill(selectEl, mapObj) {
+        if (!selectEl) return;
+        var cur = selectEl.value || '';
+        while (selectEl.options.length > 1) selectEl.remove(1);
+
+        uniqSorted(mapObj).forEach(function (key) {
+          var opt = document.createElement('option');
+          opt.value = key;
+          opt.textContent = mapObj[key];
+          selectEl.appendChild(opt);
+        });
+
+        selectEl.value = cur;
+      }
+
+      fill(brandEl, brandMap);
+      fill(socketEl, socketMap);
+      fill(genEl, genMap);
+    }
+
+    function setCards(nextCards) {
+      cards = nextCards || [];
+    }
+
+    function getFilters() {
+      return {
+        q: (searchEl && searchEl.value ? searchEl.value.trim().toLowerCase() : ''),
+        brand: (brandEl && brandEl.value ? brandEl.value.toLowerCase() : ''),
+        socket: (socketEl && socketEl.value ? socketEl.value.toLowerCase() : ''),
+        gen: (genEl && genEl.value ? genEl.value.toLowerCase() : ''),
+        sort: (sortEl && sortEl.value ? sortEl.value.toLowerCase() : 'recommended')
+      };
+    }
+
+    function matches(card, f) {
+      if (f.brand) {
+        var bk = (card.getAttribute('data-brand-key') || '').toLowerCase();
+        if (bk !== f.brand) return false;
+      }
+      if (f.socket) {
+        var sk = (card.getAttribute('data-socket-key') || '').toLowerCase();
+        if (sk !== f.socket) return false;
+      }
+      if (f.gen) {
+        var gk = (card.getAttribute('data-gen-key') || '').toLowerCase();
+        if (gk !== f.gen) return false;
+      }
+      if (f.q) {
+        var t = (card.getAttribute('data-title') || '').toLowerCase();
+        var bn = (card.getAttribute('data-brand-name') || '').toLowerCase();
+        var sl = (card.getAttribute('data-socket-label') || '').toLowerCase();
+        var gl = (card.getAttribute('data-gen-label') || '').toLowerCase();
+        var hay = [t, bn, sl, gl].join(' ');
+        if (hay.indexOf(f.q) === -1) return false;
+      }
+      return true;
+    }
+
+    function sortCards(list, sortMode) {
+      var sorted = list.slice();
+
+      if (sortMode === 'title_az' || sortMode === 'title_za') {
+        sorted.sort(function (a, b) {
+          var ta = (a.getAttribute('data-title') || '').toLowerCase();
+          var tb = (b.getAttribute('data-title') || '').toLowerCase();
+          return ta.localeCompare(tb);
+        });
+        if (sortMode === 'title_za') sorted.reverse();
+        return sorted;
+      }
+
+      sorted.sort(function (a, b) {
+        var oa = parseInt(a.getAttribute('data-sort-order') || '999999', 10);
+        var ob = parseInt(b.getAttribute('data-sort-order') || '999999', 10);
+        if (isNaN(oa)) oa = 999999;
+        if (isNaN(ob)) ob = 999999;
+        if (oa !== ob) return oa - ob;
+
+        var ta = (a.getAttribute('data-title') || '').toLowerCase();
+        var tb = (b.getAttribute('data-title') || '').toLowerCase();
+        return ta.localeCompare(tb);
+      });
+      return sorted;
+    }
+
+    function render() {
+      if (!cards.length) {
+        if (countEl) countEl.textContent = '0 shown';
+        if (emptyEl) emptyEl.style.display = '';
+        return;
+      }
+
+      var f = getFilters();
+      var visible = cards.filter(function (c) { return matches(c, f); });
+      var ordered = sortCards(visible, f.sort);
+
+      ordered.forEach(function (c) { grid.appendChild(c); });
+
+      cards.forEach(function (c) {
+        c.style.display = ordered.indexOf(c) !== -1 ? '' : 'none';
+      });
+
+      if (countEl) {
+        countEl.textContent = ordered.length + ' shown';
+      }
+      if (emptyEl) {
+        emptyEl.style.display = ordered.length ? 'none' : '';
+      }
+    }
+
+    function buildEndpoint(page) {
+      if (!jsonEndpoint) return '';
+      if (!page) return jsonEndpoint;
+      var joiner = jsonEndpoint.indexOf('?') !== -1 ? '&' : '?';
+      return jsonEndpoint + joiner + 'page=' + page;
+    }
+
+    function buildRulesEndpoint(page) {
+      if (!rulesEndpoint) return '';
+      if (!page) return rulesEndpoint;
+      var joiner = rulesEndpoint.indexOf('?') !== -1 ? '&' : '?';
+      return rulesEndpoint + joiner + 'page=' + page;
+    }
+
+    function priceHtml(entry) {
+      if (!entry || !entry.has_price || !entry.bundle_min_cents) return '';
+      var min = Number(entry.bundle_min_cents || 0);
+      var max = Number(entry.bundle_max_cents || 0);
+      var priceValue = max > min ? (formatMoney(min) + ' to ' + formatMoney(max)) : formatMoney(min);
+
+      var saveHtml = '';
+      var saveMin = Number(entry.save_min_cents || 0);
+      var saveMax = Number(entry.save_max_cents || 0);
+      if (saveMax > 0) {
+        saveHtml = '<span class="ucp-hub-card__save">Save&nbsp;' +
+          (saveMax > saveMin ? (formatMoney(saveMin) + ' to ' + formatMoney(saveMax)) : formatMoney(saveMax)) +
+          '</span>';
+      }
+
+      return (
+        '<div class="ucp-hub-card__price">' +
+          '<div class="ucp-hub-card__price-row">' +
+            '<span class="ucp-hub-card__price-label">Bundle price</span>' +
+            '<span class="ucp-hub-card__price-value">' + priceValue + '</span>' +
+          '</div>' +
+          saveHtml +
+        '</div>'
+      );
+    }
+
+    function buildCard(entry) {
+      if (!entry || !entry.url) return null;
+
+      var cpuImage = entry.cpu_thumb
+        ? '<img class="ucp-hub-card__cpu" src="' + escapeHtml(entry.cpu_thumb) + '" loading="lazy" alt="' + escapeHtml(entry.title || '') + '">'
+        : '<div class="ucp-hub-card__cpu ucp-hub-card__cpu--ph"></div>';
+
+      var badge = entry.badge ? '<div class="ucp-hub-card__badge">' + escapeHtml(entry.badge) + '</div>' : '';
+      var subtitle = entry.subtitle ? '<div class="ucp-hub-card__sub">' + escapeHtml(entry.subtitle) + '</div>' : '';
+
+      var chips = '';
+      if (entry.brand_name) chips += '<span class="ucp-hub-chip">' + escapeHtml(entry.brand_name) + '</span>';
+      if (entry.socket_label) chips += '<span class="ucp-hub-chip">' + escapeHtml(entry.socket_label) + '</span>';
+      if (entry.gen_label) chips += '<span class="ucp-hub-chip">' + escapeHtml(entry.gen_label) + '</span>';
+      if (chips) chips = '<div class="ucp-hub-card__chips">' + chips + '</div>';
+
+      var el = document.createElement('a');
+      el.className = 'ucp-hub-card';
+      el.href = entry.url;
+      el.setAttribute('data-title', entry.title || '');
+      el.setAttribute('data-brand-key', entry.brand_key || '');
+      el.setAttribute('data-brand-name', entry.brand_name || '');
+      el.setAttribute('data-socket-key', entry.socket_key || '');
+      el.setAttribute('data-socket-label', entry.socket_label || '');
+      el.setAttribute('data-gen-key', entry.gen_key || '');
+      el.setAttribute('data-gen-label', entry.gen_label || '');
+      el.setAttribute('data-sort-order', entry.sort_order || 999999);
+      el.setAttribute('data-ucp-track-click', '');
+      el.setAttribute('data-ucp-track-cta', 'bundle_hub_card');
+      el.setAttribute('data-ucp-track-page-type', 'bundle_list');
+
+      el.innerHTML =
+        '<div class="ucp-hub-card__top">' +
+          cpuImage +
+          '<div class="ucp-hub-card__meta">' +
+            badge +
+            '<div class="ucp-hub-card__title">' + escapeHtml(entry.title || 'CPU Bundle') + '</div>' +
+            priceHtml(entry) +
+            subtitle +
+            chips +
+          '</div>' +
+        '</div>' +
+        '<div class="ucp-hub-card__cta">' +
+          '<span class="ucp-hub-card__cta-text">View bundle</span>' +
+        '</div>';
+
+      return el;
+    }
+
+    function applyRulePricing(entries, rules) {
+      if (!entries || !entries.length || !rules || !rules.length) return entries;
+
+      var map = {};
+
+      rules.forEach(function (rule) {
+        var cpuId = Number(rule.cpu_product_id || 0);
+        if (!cpuId) return;
+
+        var cpuCents = Number(rule.cpu_price_cents || 0);
+        var moboCents = Number(rule.mobo_price_cents || 0);
+        if (!cpuCents || !moboCents) return;
+
+        var discountCents = Number(rule.discount_cents || 0);
+        if (isNaN(discountCents)) discountCents = 0;
+
+        var bundleCents = cpuCents + moboCents - discountCents;
+        if (bundleCents < 0) bundleCents = 0;
+
+        if (!map[cpuId]) {
+          map[cpuId] = {
+            minBundle: bundleCents,
+            maxBundle: bundleCents,
+            minSave: discountCents,
+            maxSave: discountCents
+          };
+          return;
+        }
+
+        var stats = map[cpuId];
+        if (bundleCents < stats.minBundle) stats.minBundle = bundleCents;
+        if (bundleCents > stats.maxBundle) stats.maxBundle = bundleCents;
+
+        if (discountCents < stats.minSave) stats.minSave = discountCents;
+        if (discountCents > stats.maxSave) stats.maxSave = discountCents;
+      });
+
+      entries.forEach(function (entry) {
+        var cpuId = Number(entry.cpu_product_id || 0);
+        if (!cpuId || !map[cpuId]) return;
+
+        var stats = map[cpuId];
+        entry.bundle_min_cents = stats.minBundle;
+        entry.bundle_max_cents = stats.maxBundle;
+        entry.save_min_cents = stats.minSave;
+        entry.save_max_cents = stats.maxSave;
+        entry.has_price = true;
+      });
+
+      return entries;
+    }
+
+    function renderEntries(entries) {
+      if (!entries || !entries.length) return;
+      grid.innerHTML = '';
+      var frag = document.createDocumentFragment();
+
+      entries.forEach(function (entry) {
+        var card = buildCard(entry);
+        if (card) frag.appendChild(card);
+      });
+
+      grid.appendChild(frag);
+      setCards(Array.prototype.slice.call(grid.querySelectorAll('.ucp-hub-card')));
+      buildOptions();
+      render();
+    }
+
+    function fetchEntries() {
+      if (!jsonEndpoint) return Promise.resolve(null);
+      var entries = [];
+      var page = 1;
+
+      function fetchNext() {
+        var url = buildEndpoint(page);
+        if (!url) return Promise.resolve(entries);
+
+        return fetch(url, { credentials: 'same-origin' })
+          .then(function (res) { return res.json(); })
+          .then(function (data) {
+            if (data && Array.isArray(data.entries)) {
+              entries = entries.concat(data.entries);
+            }
+            if (data && data.next_page) {
+              page = data.next_page;
+              return fetchNext();
+            }
+            return entries;
+          });
+      }
+
+      return fetchNext();
+    }
+
+    function fetchRules() {
+      if (!rulesEndpoint) return Promise.resolve(null);
+      var rules = [];
+      var page = 1;
+
+      function fetchNext() {
+        var url = buildRulesEndpoint(page);
+        if (!url) return Promise.resolve(rules);
+
+        return fetch(url, { credentials: 'same-origin' })
+          .then(function (res) { return res.json(); })
+          .then(function (data) {
+            if (data && Array.isArray(data.rules)) {
+              rules = rules.concat(data.rules);
+            }
+            if (data && data.next_page) {
+              page = data.next_page;
+              return fetchNext();
+            }
+            return rules;
+          });
+      }
+
+      return fetchNext();
+    }
+
+    buildOptions();
+    render();
+
+    if (controls) {
+      controls.addEventListener('input', function (e) {
+        if (e.target === searchEl) render();
+      });
+      controls.addEventListener('change', function () {
+        render();
+      });
+    }
+
+    Promise.all([fetchEntries(), fetchRules()])
+      .then(function (results) {
+        var entries = results[0];
+        var rules = results[1];
+
+        if (entries && entries.length) {
+          entries = applyRulePricing(entries, rules);
+          renderEntries(entries);
+        }
+      })
+      .catch(function () {
+        return null;
+      });
+  }
+
+  function boot() {
+    document.querySelectorAll('[data-ucp-hub]').forEach(initHub);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+</script>
+
+{%- endif -%}
+
+<script src="{{ 'ucp-source-tracker.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "UCP Bundle Hub",
+  "settings": [
+    { "type": "text", "id": "title", "label": "Title", "default": "Bundle Masterlist" },
+    { "type": "text", "id": "intro", "label": "Intro text", "default": "Pick your CPU, then choose a motherboard on the next page." },
+
+    { "type": "checkbox", "id": "show_filters", "label": "Show filters and search", "default": true },
+    {
+      "type": "select",
+      "id": "default_sort",
+      "label": "Default sort",
+      "options": [
+        { "value": "recommended", "label": "Recommended (sort_order, then title)" },
+        { "value": "title_az", "label": "Title A to Z" },
+        { "value": "title_za", "label": "Title Z to A" }
+      ],
+      "default": "recommended"
+    },
+
+    { "type": "header", "content": "Layout" },
+    {
+      "type": "select",
+      "id": "width",
+      "label": "Width",
+      "options": [
+        { "value": "page", "label": "Page" },
+        { "value": "full", "label": "Full width" }
+      ],
+      "default": "page"
+    },
+    { "type": "range", "id": "max_width", "label": "Max width (page)", "min": 900, "max": 1800, "step": 50, "default": 1200 },
+    { "type": "range", "id": "pad_desktop", "label": "Padding (desktop)", "min": 0, "max": 60, "step": 2, "default": 24 },
+    { "type": "range", "id": "pad_mobile", "label": "Padding (mobile)", "min": 0, "max": 40, "step": 2, "default": 16 },
+    { "type": "range", "id": "grid_gap", "label": "Grid gap", "min": 6, "max": 30, "step": 2, "default": 14 },
+    { "type": "range", "id": "columns_desktop", "label": "Columns (desktop)", "min": 1, "max": 3, "step": 1, "default": 2 }
+  ],
+  "presets": [
+    { "name": "UCP Bundle Hub" }
+  ]
+}
+{% endschema %}

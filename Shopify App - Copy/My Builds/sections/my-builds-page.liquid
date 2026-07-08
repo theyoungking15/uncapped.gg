@@ -1,0 +1,1740 @@
+{%- liquid
+  assign section_width = section.settings.section_width | default: 'page-width'
+  assign builder_page_url = section.settings.builder_page_url | strip
+  assign quote_screenshot_mode = section.settings.quote_screenshot_mode | default: 'detailed'
+  assign quote_screenshot_mode_mobile = section.settings.quote_screenshot_mode_mobile | default: 'same_as_desktop'
+  assign quote_font_preset = section.settings.quote_font_preset | default: 'inter_roboto'
+
+  assign brand_mo = shop.metaobjects.brand['uncapped']
+  assign brand_logo_media = blank
+
+  if brand_mo != blank
+    if brand_mo.logo != blank
+      assign brand_logo_media = brand_mo.logo.value
+    elsif brand_mo.image != blank
+      assign brand_logo_media = brand_mo.image.value
+    elsif brand_mo.brand_logo != blank
+      assign brand_logo_media = brand_mo.brand_logo.value
+    endif
+  endif
+
+  capture brand_logo_url
+    if brand_logo_media != blank
+      echo brand_logo_media | image_url: width: 240
+    elsif shop.brand.logo != blank
+      echo shop.brand.logo | image_url: width: 240
+    elsif settings.logo != blank
+      echo settings.logo | image_url: width: 240
+    else
+      echo ''
+    endif
+  endcapture
+-%}
+
+<section
+  class="mb-page section-{{ section.id }}-padding {% if section_width == 'page-width' %}page-width{% else %}mb-page--full-width{% endif %}"
+  data-my-builds-section
+  data-proxy-base="{{ section.settings.proxy_base_path | default: '/apps/upgrade-assist' | strip }}"
+  data-list-endpoint="{{ section.settings.proxy_base_path | default: '/apps/upgrade-assist' | strip | append: '/my-builds/list' }}"
+  data-login-url="/account/login"
+  data-builder-url="{% if builder_page_url != blank %}{{ builder_page_url }}{% else %}/pages/pc-builder-2{% endif %}"
+  data-quote-screenshot-mode="{{ quote_screenshot_mode | escape }}"
+  data-quote-screenshot-mode-mobile="{{ quote_screenshot_mode_mobile | escape }}"
+  data-quote-font-preset="{{ quote_font_preset | escape }}"
+  data-screenshot-brand-logo="{{ brand_logo_url | strip | escape }}"
+>
+  <div class="mb-page__wrap">
+    <header class="mb-page__hero">
+      <div class="mb-page__heroCopy">
+        <p class="mb-page__eyebrow">{{ section.settings.eyebrow }}</p>
+        <h1 class="mb-page__title">{{ section.settings.heading }}</h1>
+        {% if section.settings.subheading != blank %}
+          <p class="mb-page__subheading">{{ section.settings.subheading }}</p>
+        {% endif %}
+      </div>
+      <a class="mb-page__builderLink" href="{% if builder_page_url != blank %}{{ builder_page_url }}{% else %}/pages/pc-builder-2{% endif %}">
+        Open PC Builder
+      </a>
+    </header>
+
+    <div class="mb-page__status" data-my-builds-status>
+      <strong>Loading My Builds...</strong>
+      <p>Checking your customer-owned saved builds through the app proxy.</p>
+    </div>
+
+    <div class="mb-page__state mb-page__state--auth" data-my-builds-auth hidden>
+      <h2>Sign in to view your saved builds</h2>
+      <p>My Builds is tied to your Shopify customer account. Sign in first so the page can load only the builds that belong to you.</p>
+      <div class="mb-page__stateActions">
+        <a class="mb-page__primary" href="/account/login">Sign in</a>
+        <a class="mb-page__secondary" href="{% if builder_page_url != blank %}{{ builder_page_url }}{% else %}/pages/pc-builder-2{% endif %}">Go to PC Builder</a>
+      </div>
+    </div>
+
+    <div class="mb-page__state mb-page__state--error" data-my-builds-error hidden>
+      <h2>Could not load your builds</h2>
+      <p data-my-builds-error-text>The saved-build list route did not return a usable response.</p>
+      <div class="mb-page__stateActions">
+        <button type="button" class="mb-page__primary" data-my-builds-retry>Retry</button>
+      </div>
+    </div>
+
+    <div class="mb-page__state mb-page__state--empty" data-my-builds-empty hidden>
+      <h2>No saved builds yet</h2>
+      <p>Saved builds from PC Builder will appear here when the Save Build feature is enabled.</p>
+      <div class="mb-page__stateActions">
+        <a class="mb-page__primary" href="{% if builder_page_url != blank %}{{ builder_page_url }}{% else %}/pages/pc-builder-2{% endif %}">Start a build</a>
+      </div>
+    </div>
+
+    <section class="mb-page__results" data-my-builds-results hidden>
+      <div class="mb-page__resultsBar">
+        <div>
+          <h2>Your saved builds</h2>
+          <p data-my-builds-count></p>
+        </div>
+        <p class="mb-page__resultsNote">Open uses the short quote link when available. Snapshot details are shown for newly saved builds.</p>
+      </div>
+
+      <div class="mb-page__flash" data-my-builds-flash hidden></div>
+
+      <div class="mb-page__workspace">
+        <aside class="mb-page__sidebar" aria-label="Saved build list">
+          <div class="mb-page__sidebarHeader">
+            <div>
+              <h3>Builds</h3>
+              <p data-my-builds-list-count></p>
+            </div>
+          </div>
+          <div class="mb-page__list" data-my-builds-list></div>
+        </aside>
+
+        <article class="mb-page__detail" data-my-builds-detail>
+          <div class="mb-page__detailEmpty" data-build-detail-empty>
+            <h3>Select a build</h3>
+            <p>Choose a saved build from the left column to view its components, total, and actions.</p>
+          </div>
+
+          <div class="mb-page__detailContent" data-build-detail-content hidden>
+            <div class="mb-page__detailTop">
+              <div>
+                <div class="mb-page__detailPills">
+                  <span class="mb-page__pill mb-page__pill--status" data-detail-status></span>
+                  <span class="mb-page__pill" data-detail-visibility></span>
+                </div>
+                <h3 data-detail-name></h3>
+                <p class="mb-page__detailSummary" data-detail-summary hidden></p>
+              </div>
+              <div class="mb-page__detailActions">
+                <a class="mb-page__primary" href="#" data-detail-open hidden>Open build</a>
+                <button type="button" class="mb-page__secondary" data-build-action="share">Share</button>
+                <button type="button" class="mb-page__secondary" data-build-action="screenshot">Screenshot</button>
+                <button type="button" class="mb-page__secondary" data-build-action="rename">Rename</button>
+                <button type="button" class="mb-page__secondary" data-build-action="archive">Archive</button>
+                <button type="button" class="mb-page__secondary" data-build-action="unarchive" hidden>Unarchive</button>
+                <button type="button" class="mb-page__danger" data-build-action="delete">Delete</button>
+              </div>
+            </div>
+
+            <dl class="mb-page__meta">
+              <div class="mb-page__metaRow">
+                <dt>Updated</dt>
+                <dd data-detail-updated></dd>
+              </div>
+              <div class="mb-page__metaRow">
+                <dt>Created</dt>
+                <dd data-detail-created></dd>
+              </div>
+              <div class="mb-page__metaRow">
+                <dt>Quote code</dt>
+                <dd data-detail-quote></dd>
+              </div>
+              <div class="mb-page__metaRow">
+                <dt>Total items</dt>
+                <dd data-detail-total-items></dd>
+              </div>
+            </dl>
+
+            <div class="mb-page__fallback" data-detail-fallback hidden>
+              <strong>Snapshot details are not available for this build.</strong>
+              <p>Open the build in PC Builder and save it again to store component images, variants, prices, and screenshot data.</p>
+            </div>
+
+            <div class="mb-page__componentsHeader">
+              <h4>Components</h4>
+              <p data-detail-component-count></p>
+            </div>
+            <div class="mb-page__components" data-detail-components></div>
+
+            <div class="mb-page__totalBar">
+              <span>Total</span>
+              <strong data-detail-total-price></strong>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+  </div>
+
+  <template data-my-builds-list-template>
+    <button type="button" class="mb-page__listItem" data-build-list-item>
+      <span class="mb-page__listName" data-list-build-name></span>
+      <span class="mb-page__listMeta" data-list-build-meta></span>
+    </button>
+  </template>
+
+  <template data-my-builds-item-template>
+    <article class="mb-page__component" data-component-row>
+      <div class="mb-page__componentImage" data-component-image-wrap>
+        <img alt="" loading="lazy" data-component-image>
+        <span data-component-image-fallback>No image</span>
+      </div>
+      <div class="mb-page__componentInfo">
+        <span class="mb-page__componentLabel" data-component-label></span>
+        <h5 data-component-title></h5>
+        <p data-component-variant hidden></p>
+        <p data-component-quick hidden></p>
+      </div>
+      <div class="mb-page__componentQty">
+        <span>Qty</span>
+        <strong data-component-qty></strong>
+      </div>
+      <div class="mb-page__componentPrice">
+        <strong data-component-price></strong>
+        <a href="#" data-component-buy hidden>View product</a>
+      </div>
+    </article>
+  </template>
+</section>
+
+<style>
+  .mb-page {
+    --mb-ink: #333333;
+    --mb-ink-soft: #5f5f5f;
+    --mb-border: rgba(51, 51, 51, 0.12);
+    --mb-border-strong: rgba(51, 51, 51, 0.2);
+    --mb-surface: #ffffff;
+    --mb-surface-soft: #f7f7f7;
+    --mb-surface-muted: #f1f1f1;
+    --mb-danger: #9f2e2e;
+    --mb-shadow: 0 20px 40px rgba(17, 17, 17, 0.08);
+    color: var(--mb-ink);
+  }
+
+  .mb-page [hidden] {
+    display: none !important;
+  }
+
+  .mb-page--full-width {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .mb-page__wrap {
+    display: grid;
+    gap: 24px;
+  }
+
+  .mb-page__hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 20px;
+    padding: 32px;
+    border: 1px solid var(--mb-border);
+    border-radius: 28px;
+    background:
+      radial-gradient(circle at top right, rgba(51, 51, 51, 0.18), transparent 34%),
+      linear-gradient(145deg, #ffffff 0%, #f5f5f5 100%);
+  }
+
+  .mb-page__eyebrow {
+    margin: 0 0 10px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--mb-ink-soft);
+  }
+
+  .mb-page__title {
+    margin: 0;
+    font-size: clamp(2rem, 3vw, 3.15rem);
+    line-height: 1;
+    letter-spacing: -0.04em;
+  }
+
+  .mb-page__subheading {
+    max-width: 62ch;
+    margin: 12px 0 0;
+    color: var(--mb-ink-soft);
+  }
+
+  .mb-page__builderLink,
+  .mb-page__primary,
+  .mb-page__secondary,
+  .mb-page__danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: 999px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: transform 180ms ease, background-color 180ms ease, color 180ms ease, border-color 180ms ease;
+    cursor: pointer;
+  }
+
+  .mb-page__builderLink,
+  .mb-page__primary {
+    border: 1px solid #333333;
+    background: #333333;
+    color: #ffffff;
+  }
+
+  .mb-page__builderLink:hover,
+  .mb-page__primary:hover {
+    transform: translateY(-1px);
+    background: #1f1f1f;
+  }
+
+  .mb-page__secondary {
+    border: 1px solid var(--mb-border-strong);
+    background: #ffffff;
+    color: #333333;
+  }
+
+  .mb-page__secondary:hover {
+    transform: translateY(-1px);
+    background: var(--mb-surface-soft);
+  }
+
+  .mb-page__danger {
+    border: 1px solid rgba(159, 46, 46, 0.32);
+    background: #ffffff;
+    color: var(--mb-danger);
+  }
+
+  .mb-page__danger:hover {
+    transform: translateY(-1px);
+    background: rgba(159, 46, 46, 0.08);
+  }
+
+  .mb-page__status,
+  .mb-page__state,
+  .mb-page__results {
+    border: 1px solid var(--mb-border);
+    border-radius: 24px;
+    background: var(--mb-surface);
+    box-shadow: var(--mb-shadow);
+  }
+
+  .mb-page__status,
+  .mb-page__state {
+    padding: 24px;
+  }
+
+  .mb-page__status strong,
+  .mb-page__state h2 {
+    display: block;
+    margin: 0 0 8px;
+    font-size: 1.15rem;
+  }
+
+  .mb-page__status p,
+  .mb-page__state p,
+  .mb-page__resultsBar p,
+  .mb-page__resultsNote,
+  .mb-page__detailSummary,
+  .mb-page__fallback p {
+    margin: 0;
+    color: var(--mb-ink-soft);
+  }
+
+  .mb-page__stateActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 18px;
+  }
+
+  .mb-page__results {
+    padding: 24px;
+  }
+
+  .mb-page__resultsBar {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .mb-page__resultsBar h2 {
+    margin: 0 0 6px;
+    font-size: 1.2rem;
+  }
+
+  .mb-page__resultsNote {
+    max-width: 32ch;
+    text-align: right;
+  }
+
+  .mb-page__flash {
+    margin-bottom: 18px;
+    padding: 14px 16px;
+    border: 1px solid var(--mb-border);
+    border-radius: 16px;
+    background: var(--mb-surface-soft);
+    color: var(--mb-ink);
+    font-size: 0.94rem;
+    line-height: 1.5;
+  }
+
+  .mb-page__flash--error {
+    border-color: rgba(159, 46, 46, 0.22);
+    background: rgba(159, 46, 46, 0.08);
+  }
+
+  .mb-page__flash--success {
+    border-color: rgba(51, 51, 51, 0.18);
+    background: rgba(51, 51, 51, 0.06);
+  }
+
+  .mb-page__workspace {
+    display: grid;
+    grid-template-columns: minmax(240px, 30%) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+  }
+
+  .mb-page__sidebar,
+  .mb-page__detail {
+    min-width: 0;
+    border: 1px solid var(--mb-border);
+    border-radius: 22px;
+    background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+  }
+
+  .mb-page__sidebar {
+    padding: 16px;
+    position: sticky;
+    top: 16px;
+  }
+
+  .mb-page__sidebarHeader {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 4px 4px 14px;
+  }
+
+  .mb-page__sidebarHeader h3,
+  .mb-page__detailTop h3,
+  .mb-page__componentsHeader h4 {
+    margin: 0;
+  }
+
+  .mb-page__sidebarHeader p,
+  .mb-page__componentsHeader p {
+    margin: 4px 0 0;
+    color: var(--mb-ink-soft);
+    font-size: 0.9rem;
+  }
+
+  .mb-page__list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .mb-page__listItem {
+    width: 100%;
+    padding: 14px;
+    border: 1px solid transparent;
+    border-radius: 16px;
+    background: transparent;
+    color: var(--mb-ink);
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
+  }
+
+  .mb-page__listItem:hover,
+  .mb-page__listItem.is-selected {
+    border-color: var(--mb-border-strong);
+    background: #ffffff;
+    transform: translateY(-1px);
+  }
+
+  .mb-page__listItem.is-selected {
+    box-shadow: inset 3px 0 0 #333333;
+  }
+
+  .mb-page__listName,
+  .mb-page__listMeta {
+    display: block;
+  }
+
+  .mb-page__listName {
+    font-weight: 800;
+    line-height: 1.25;
+  }
+
+  .mb-page__listMeta {
+    margin-top: 6px;
+    color: var(--mb-ink-soft);
+    font-size: 0.86rem;
+  }
+
+  .mb-page__detail {
+    padding: 22px;
+  }
+
+  .mb-page__detailEmpty {
+    display: grid;
+    min-height: 320px;
+    place-content: center;
+    text-align: center;
+    color: var(--mb-ink-soft);
+  }
+
+  .mb-page__detailEmpty h3 {
+    margin: 0 0 8px;
+    color: var(--mb-ink);
+  }
+
+  .mb-page__detailContent {
+    display: grid;
+    gap: 18px;
+  }
+
+  .mb-page__detailTop {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 18px;
+    align-items: start;
+  }
+
+  .mb-page__detailPills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .mb-page__pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: var(--mb-surface-muted);
+    color: var(--mb-ink);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: capitalize;
+  }
+
+  .mb-page__pill--status {
+    background: #333333;
+    color: #ffffff;
+  }
+
+  .mb-page__detailTop h3 {
+    font-size: clamp(1.35rem, 2vw, 2rem);
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+  }
+
+  .mb-page__detailSummary {
+    margin-top: 10px;
+    line-height: 1.5;
+  }
+
+  .mb-page__detailActions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+    max-width: 460px;
+  }
+
+  .mb-page__detailActions .mb-page__primary,
+  .mb-page__detailActions .mb-page__secondary,
+  .mb-page__detailActions .mb-page__danger {
+    min-height: 40px;
+    padding: 0 14px;
+    font-size: 0.9rem;
+  }
+
+  .mb-page__meta {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0;
+  }
+
+  .mb-page__metaRow {
+    display: grid;
+    gap: 4px;
+    padding: 12px;
+    border-radius: 14px;
+    background: var(--mb-surface-soft);
+  }
+
+  .mb-page__metaRow dt,
+  .mb-page__metaRow dd {
+    margin: 0;
+    font-size: 0.9rem;
+  }
+
+  .mb-page__metaRow dt {
+    color: var(--mb-ink-soft);
+  }
+
+  .mb-page__metaRow dd {
+    font-weight: 800;
+  }
+
+  .mb-page__fallback {
+    padding: 16px;
+    border: 1px solid var(--mb-border);
+    border-radius: 16px;
+    background: #ffffff;
+  }
+
+  .mb-page__fallback strong {
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .mb-page__componentsHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 14px;
+  }
+
+  .mb-page__components {
+    display: grid;
+    gap: 12px;
+  }
+
+  .mb-page__component {
+    display: grid;
+    grid-template-columns: 88px minmax(0, 1fr) 64px 132px;
+    gap: 14px;
+    align-items: center;
+    padding: 14px;
+    border: 1px solid var(--mb-border);
+    border-radius: 18px;
+    background: #ffffff;
+  }
+
+  .mb-page__componentImage {
+    display: grid;
+    place-items: center;
+    width: 88px;
+    height: 88px;
+    overflow: hidden;
+    border: 1px solid rgba(51, 51, 51, 0.08);
+    border-radius: 14px;
+    background: var(--mb-surface-soft);
+    color: var(--mb-ink-soft);
+    font-size: 0.76rem;
+    text-align: center;
+  }
+
+  .mb-page__componentImage img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #ffffff;
+  }
+
+  .mb-page__componentInfo {
+    min-width: 0;
+  }
+
+  .mb-page__componentLabel {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--mb-ink-soft);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .mb-page__componentInfo h5 {
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.3;
+  }
+
+  .mb-page__componentInfo p {
+    margin: 5px 0 0;
+    color: var(--mb-ink-soft);
+    font-size: 0.88rem;
+    line-height: 1.4;
+  }
+
+  .mb-page__componentQty {
+    display: grid;
+    gap: 4px;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .mb-page__componentQty span {
+    color: var(--mb-ink-soft);
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .mb-page__componentQty strong,
+  .mb-page__componentPrice strong {
+    font-size: 1rem;
+  }
+
+  .mb-page__componentPrice {
+    display: grid;
+    gap: 8px;
+    justify-items: end;
+    text-align: right;
+  }
+
+  .mb-page__componentPrice a {
+    color: var(--mb-ink);
+    font-size: 0.84rem;
+    font-weight: 800;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .mb-page__totalBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 18px;
+    border-radius: 18px;
+    background: #333333;
+    color: #ffffff;
+  }
+
+  .mb-page__totalBar span {
+    font-size: 0.86rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .mb-page__totalBar strong {
+    font-size: clamp(1.25rem, 2vw, 1.8rem);
+  }
+
+  .mb-page button[disabled],
+  .mb-page a[aria-disabled="true"] {
+    opacity: 0.55;
+    cursor: wait;
+    pointer-events: none;
+    transform: none;
+  }
+
+  @media screen and (max-width: 989px) {
+    .mb-page__hero,
+    .mb-page__resultsBar,
+    .mb-page__detailTop,
+    .mb-page__workspace {
+      grid-template-columns: 1fr;
+      display: grid;
+    }
+
+    .mb-page__resultsNote {
+      text-align: left;
+    }
+
+    .mb-page__sidebar {
+      position: static;
+    }
+
+    .mb-page__list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .mb-page__detailActions {
+      justify-content: flex-start;
+      max-width: none;
+    }
+
+    .mb-page__meta {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media screen and (max-width: 749px) {
+    .mb-page--full-width {
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+
+    .mb-page__hero,
+    .mb-page__status,
+    .mb-page__state,
+    .mb-page__results {
+      padding: 20px;
+      border-radius: 20px;
+    }
+
+    .mb-page__list,
+    .mb-page__meta {
+      grid-template-columns: 1fr;
+    }
+
+    .mb-page__component {
+      grid-template-columns: 72px minmax(0, 1fr);
+      align-items: start;
+    }
+
+    .mb-page__componentImage {
+      width: 72px;
+      height: 72px;
+    }
+
+    .mb-page__componentQty,
+    .mb-page__componentPrice {
+      justify-items: start;
+      text-align: left;
+      grid-column: 2;
+    }
+  }
+</style>
+
+{{ 'html2canvas.min.js' | asset_url | script_tag }}
+{{ 'ucp-pcb-quote-image.js' | asset_url | script_tag }}
+
+<script>
+  (() => {
+    const currentScript = document.currentScript;
+    const section =
+      (currentScript && typeof currentScript.closest === "function"
+        ? currentScript.closest("[data-my-builds-section]")
+        : null) || document.querySelector("[data-my-builds-section]");
+    if (!section) return;
+
+    const statusEl = section.querySelector("[data-my-builds-status]");
+    const authEl = section.querySelector("[data-my-builds-auth]");
+    const errorEl = section.querySelector("[data-my-builds-error]");
+    const errorTextEl = section.querySelector("[data-my-builds-error-text]");
+    const emptyEl = section.querySelector("[data-my-builds-empty]");
+    const resultsEl = section.querySelector("[data-my-builds-results]");
+    const flashEl = section.querySelector("[data-my-builds-flash]");
+    const countEl = section.querySelector("[data-my-builds-count]");
+    const listCountEl = section.querySelector("[data-my-builds-list-count]");
+    const listEl = section.querySelector("[data-my-builds-list]");
+    const detailEmptyEl = section.querySelector("[data-build-detail-empty]");
+    const detailContentEl = section.querySelector("[data-build-detail-content]");
+    const componentsEl = section.querySelector("[data-detail-components]");
+    const retryButton = section.querySelector("[data-my-builds-retry]");
+    const listTemplate = section.querySelector("[data-my-builds-list-template]");
+    const itemTemplate = section.querySelector("[data-my-builds-item-template]");
+    const builderUrl = String(section.getAttribute("data-builder-url") || "").trim() || "/pages/pc-builder-2";
+    const proxyBase = String(section.getAttribute("data-proxy-base") || "").replace(/\/+$/, "");
+    const listEndpoint = String(section.getAttribute("data-list-endpoint") || "").replace(/\/+$/, "");
+    const allowedScreenshotModes = new Set([
+      "detailed",
+      "clean",
+      "compact",
+      "compact_mobile",
+      "socials_compact",
+      "socials_compact_mobile",
+      "quotation",
+      "quotation_mobile"
+    ]);
+    const screenshotModeDesktopRaw = String(section.getAttribute("data-quote-screenshot-mode") || "").trim().toLowerCase();
+    const screenshotModeMobileRaw = String(section.getAttribute("data-quote-screenshot-mode-mobile") || "").trim().toLowerCase();
+    const screenshotModeDesktop = allowedScreenshotModes.has(screenshotModeDesktopRaw) ? screenshotModeDesktopRaw : "detailed";
+    const screenshotModeMobile =
+      screenshotModeMobileRaw === "same_as_desktop" || allowedScreenshotModes.has(screenshotModeMobileRaw)
+        ? screenshotModeMobileRaw
+        : "same_as_desktop";
+    const screenshotFontPreset = String(section.getAttribute("data-quote-font-preset") || "inter_roboto").trim();
+    const screenshotBrandLogo = String(section.getAttribute("data-screenshot-brand-logo") || "").trim();
+    let currentBuilds = [];
+    let selectedHandle = "";
+    let flashTimer = null;
+
+    if (!listEl || !listTemplate || !itemTemplate) return;
+
+    function hideAllStates() {
+      [statusEl, authEl, errorEl, emptyEl, resultsEl].forEach((node) => {
+        if (node) node.hidden = true;
+      });
+    }
+
+    function clearFlash() {
+      if (flashTimer) {
+        clearTimeout(flashTimer);
+        flashTimer = null;
+      }
+      if (flashEl) {
+        flashEl.hidden = true;
+        flashEl.classList.remove("mb-page__flash--error", "mb-page__flash--success");
+        flashEl.textContent = "";
+      }
+    }
+
+    function showFlash(message, tone = "success") {
+      if (!flashEl) return;
+      clearFlash();
+      flashEl.textContent = String(message || "").trim();
+      if (!flashEl.textContent) return;
+      flashEl.classList.add(tone === "error" ? "mb-page__flash--error" : "mb-page__flash--success");
+      flashEl.hidden = false;
+      flashTimer = setTimeout(clearFlash, 4200);
+    }
+
+    function normalizeStatus(value) {
+      const normalized = String(value || "").trim().toLowerCase();
+      return normalized === "archived" ? "archived" : "active";
+    }
+
+    function formatDate(value) {
+      const source = String(value || "").trim();
+      if (!source) return "-";
+      const parsed = new Date(source);
+      if (Number.isNaN(parsed.getTime())) return source;
+      return new Intl.DateTimeFormat(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric"
+      }).format(parsed);
+    }
+
+    function formatMoney(value) {
+      if (value === null || value === undefined || value === "") return "-";
+      const amount = Number(value);
+      if (!Number.isFinite(amount)) return "-";
+      try {
+        return new Intl.NumberFormat("en-PH", {
+          style: "currency",
+          currency: "PHP",
+          maximumFractionDigits: 0
+        }).format(amount);
+      } catch (error) {
+        return `PHP ${Math.round(amount)}`;
+      }
+    }
+
+    function normId(value) {
+      const raw = String(value || "").trim();
+      if (!raw) return "";
+      if (raw.includes("gid://")) {
+        const parts = raw.split("/");
+        return parts[parts.length - 1] || raw;
+      }
+      return raw;
+    }
+
+    function getBuildSnapshot(build) {
+      return build && build.buildSnapshot && typeof build.buildSnapshot === "object" && !Array.isArray(build.buildSnapshot)
+        ? build.buildSnapshot
+        : null;
+    }
+
+    function getSnapshotItems(build) {
+      const snapshot = getBuildSnapshot(build);
+      return snapshot && Array.isArray(snapshot.items) ? snapshot.items : [];
+    }
+
+    function getItemPrice(item) {
+      const effective = Number(item && (item.priceEffective ?? item.price_effective));
+      if (Number.isFinite(effective) && effective > 0) return effective;
+      const base = Number(item && (item.priceBase ?? item.price_base));
+      if (Number.isFinite(base) && base > 0) return base;
+      return null;
+    }
+
+    function getBuildTotal(build) {
+      const snapshot = getBuildSnapshot(build);
+      const totals = snapshot && snapshot.totals && typeof snapshot.totals === "object" ? snapshot.totals : {};
+      const direct = Number(totals.total ?? totals.payableSubtotal ?? totals.subtotalBase);
+      if (Number.isFinite(direct) && direct > 0) return direct;
+
+      const fromItems = getSnapshotItems(build).reduce((sum, item) => {
+        const price = getItemPrice(item);
+        return Number.isFinite(price) ? sum + price : sum;
+      }, 0);
+      return fromItems > 0 ? fromItems : null;
+    }
+
+    function getSnapshotSubtotalDisplay(build) {
+      const snapshot = getBuildSnapshot(build);
+      const meta = snapshot && snapshot.meta && typeof snapshot.meta === "object" ? snapshot.meta : {};
+      return String(meta.subtotalDisplay || "").trim();
+    }
+
+    function getBuildPromoHandle(build) {
+      const snapshot = getBuildSnapshot(build);
+      const meta = snapshot && snapshot.meta && typeof snapshot.meta === "object" ? snapshot.meta : {};
+      return String(meta.promoHandle || meta.promo_handle || "").trim();
+    }
+
+    function getBuildQuoteVersion(build) {
+      const direct = Number(build && build.quoteVersion);
+      if (Number.isFinite(direct) && direct > 0) return direct;
+      const snapshot = getBuildSnapshot(build);
+      const meta = snapshot && snapshot.meta && typeof snapshot.meta === "object" ? snapshot.meta : {};
+      const fallback = Number(meta.quoteVersion || meta.quote_version);
+      return Number.isFinite(fallback) && fallback > 0 ? fallback : 0;
+    }
+
+    function getBuildManualOff(build) {
+      const snapshot = getBuildSnapshot(build);
+      const totals = snapshot && snapshot.totals && typeof snapshot.totals === "object" ? snapshot.totals : {};
+      const manualOff = Number(totals.manualOff ?? totals.manual_off);
+      return Number.isFinite(manualOff) && manualOff > 0 ? Math.round(manualOff) : 0;
+    }
+
+    function buildQuoteUrl(build) {
+      const quoteCode = String(build && build.quoteCode ? build.quoteCode : "").trim();
+      const quoteVersion = getBuildQuoteVersion(build);
+      const promoHandle = getBuildPromoHandle(build);
+      const manualOff = getBuildManualOff(build);
+      if (!quoteCode || !(quoteVersion > 0)) return "";
+
+      try {
+        const url = new URL(builderUrl, window.location.origin);
+        url.searchParams.delete("build");
+        url.searchParams.set("quote", quoteCode);
+        url.searchParams.set("v", String(quoteVersion));
+        if (promoHandle) url.searchParams.set("promo", promoHandle);
+        else url.searchParams.delete("promo");
+        if (manualOff > 0) url.searchParams.set("off", String(manualOff));
+        else url.searchParams.delete("off");
+        return url.toString();
+      } catch (error) {
+        return "";
+      }
+    }
+
+    function buildOpenUrl(build) {
+      const encoded = String(build && build.buildPayloadEncoded ? build.buildPayloadEncoded : "").trim();
+      const promoHandle = getBuildPromoHandle(build);
+      const quoteUrl = buildQuoteUrl(build);
+
+      if (quoteUrl) return quoteUrl;
+
+      try {
+        const url = new URL(builderUrl, window.location.origin);
+        url.searchParams.delete("promo");
+        if (encoded) {
+          url.searchParams.delete("quote");
+          url.searchParams.delete("v");
+          url.searchParams.set("build", encoded);
+          if (promoHandle) url.searchParams.set("promo", promoHandle);
+          return url.toString();
+        }
+
+        return "";
+      } catch (error) {
+        return "";
+      }
+    }
+
+    function buildTaggedShareUrl(build, sourceTag) {
+      const baseUrl = buildOpenUrl(build);
+      const normalizedSource = String(sourceTag || "").trim().toLowerCase();
+      if (!baseUrl || !normalizedSource) return baseUrl;
+
+      try {
+        const url = new URL(baseUrl, window.location.origin);
+        url.searchParams.set("src", normalizedSource);
+        return url.toString();
+      } catch (error) {
+        return baseUrl;
+      }
+    }
+
+    function itemBuyUrl(item) {
+      const explicit = String(item && (item.productUrl || item.product_url || item.url) ? item.productUrl || item.product_url || item.url : "").trim();
+      if (explicit) {
+        try {
+          return new URL(explicit, window.location.origin).toString();
+        } catch (error) {
+          return explicit;
+        }
+      }
+
+      const handle = String(item && (item.handle || item.productHandle) ? item.handle || item.productHandle : "").trim();
+      if (!handle) return "";
+
+      try {
+        const url = new URL(`/products/${encodeURIComponent(handle)}`, window.location.origin);
+        const variantId = normId(item && (item.variantId || item.variant_id));
+        if (variantId) url.searchParams.set("variant", variantId);
+        return url.toString();
+      } catch (error) {
+        return "";
+      }
+    }
+
+    function buildActionEndpoint(handle, action) {
+      const normalizedHandle = String(handle || "").trim();
+      const normalizedAction = String(action || "").trim();
+      if (!proxyBase || !normalizedHandle || !normalizedAction) return "";
+      return `${proxyBase}/my-builds/${encodeURIComponent(normalizedHandle)}/${normalizedAction}`;
+    }
+
+    function findBuild(handle) {
+      const normalizedHandle = String(handle || "").trim();
+      return currentBuilds.find((build) => String(build && build.handle ? build.handle : "").trim() === normalizedHandle) || null;
+    }
+
+    function setHandleBusy(handle, isBusy) {
+      const normalizedHandle = String(handle || "").trim();
+      if (!normalizedHandle) return;
+      section.querySelectorAll("button[data-build-action]").forEach((button) => {
+        if (String(button.getAttribute("data-build-handle") || "").trim() === normalizedHandle) {
+          button.disabled = !!isBusy;
+        }
+      });
+    }
+
+    async function copyToClipboard(text) {
+      const value = String(text || "").trim();
+      if (!value) return false;
+
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(value);
+          return true;
+        }
+      } catch (error) {
+      }
+
+      try {
+        const input = document.createElement("textarea");
+        input.value = value;
+        input.setAttribute("readonly", "readonly");
+        input.style.position = "fixed";
+        input.style.opacity = "0";
+        document.body.appendChild(input);
+        input.focus();
+        input.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(input);
+        return !!ok;
+      } catch (error) {
+        return false;
+      }
+    }
+
+    async function postBuildAction(handle, action, body = null) {
+      const endpoint = buildActionEndpoint(handle, action);
+      if (!endpoint) {
+        throw new Error("The section is missing a valid build action endpoint.");
+      }
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json"
+        },
+        body: body ? JSON.stringify(body) : "{}"
+      });
+
+      let data = null;
+      try {
+        data = await response.json();
+      } catch (error) {
+        data = null;
+      }
+
+      if (!response.ok || !data || !data.ok) {
+        throw new Error(
+          data && data.error
+            ? data.error
+            : "The saved-build action returned an unexpected response."
+        );
+      }
+
+      return data;
+    }
+
+    function renderBuildList(builds) {
+      listEl.innerHTML = "";
+      builds.forEach((build) => {
+        const fragment = listTemplate.content.cloneNode(true);
+        const button = fragment.querySelector("[data-build-list-item]");
+        const handle = String(build && build.handle ? build.handle : "").trim();
+        const nameEl = fragment.querySelector("[data-list-build-name]");
+        const metaEl = fragment.querySelector("[data-list-build-meta]");
+        const status = normalizeStatus(build && build.status);
+        const quote = String(build && build.quoteCode ? build.quoteCode : "").trim();
+        const updated = formatDate(build && build.updatedAt);
+
+        button.setAttribute("data-build-handle", handle);
+        if (handle === selectedHandle) button.classList.add("is-selected");
+        nameEl.textContent = String(build && build.buildName ? build.buildName : "Saved build");
+        metaEl.textContent = [status === "archived" ? "Archived" : "", quote || "", updated ? `Updated ${updated}` : ""]
+          .filter(Boolean)
+          .join(" - ");
+        listEl.appendChild(fragment);
+      });
+    }
+
+    function renderComponent(item) {
+      const fragment = itemTemplate.content.cloneNode(true);
+      const image = fragment.querySelector("[data-component-image]");
+      const imageFallback = fragment.querySelector("[data-component-image-fallback]");
+      const imageUrl = String(item && item.image ? item.image : "").trim();
+      const title = String(item && item.title ? item.title : "Saved component").trim();
+      const variant = String(item && (item.variantTitle || item.variant_title) ? item.variantTitle || item.variant_title : "").trim();
+      const quick = String(item && (item.quick_description || item.quickDescription) ? item.quick_description || item.quickDescription : "").trim();
+      const qty = Number(item && item.qty ? item.qty : 1);
+      const safeQty = Number.isFinite(qty) && qty > 0 ? qty : 1;
+      const price = getItemPrice(item);
+      const buyUrl = itemBuyUrl(item);
+
+      if (imageUrl) {
+        image.src = imageUrl;
+        image.alt = title;
+        image.hidden = false;
+        imageFallback.hidden = true;
+      } else {
+        image.removeAttribute("src");
+        image.hidden = true;
+        imageFallback.hidden = false;
+      }
+
+      fragment.querySelector("[data-component-label]").textContent = String(item && (item.label || item.componentLabel || item.key) ? item.label || item.componentLabel || item.key : "Component");
+      fragment.querySelector("[data-component-title]").textContent = title;
+      fragment.querySelector("[data-component-qty]").textContent = String(safeQty);
+      fragment.querySelector("[data-component-price]").textContent = Number.isFinite(price) ? formatMoney(price) : "-";
+
+      const variantEl = fragment.querySelector("[data-component-variant]");
+      if (variant && variant.toLowerCase() !== "default title") {
+        variantEl.textContent = variant;
+        variantEl.hidden = false;
+      }
+
+      const quickEl = fragment.querySelector("[data-component-quick]");
+      if (quick) {
+        quickEl.textContent = quick;
+        quickEl.hidden = false;
+      }
+
+      const buyEl = fragment.querySelector("[data-component-buy]");
+      if (buyUrl) {
+        buyEl.href = buyUrl;
+        buyEl.hidden = false;
+      }
+
+      return fragment;
+    }
+
+    function setDetailActionHandles(handle) {
+      section.querySelectorAll(".mb-page__detailActions [data-build-action]").forEach((button) => {
+        button.setAttribute("data-build-handle", handle);
+      });
+    }
+
+    function renderBuildDetail(build) {
+      if (!build) {
+        if (detailEmptyEl) detailEmptyEl.hidden = false;
+        if (detailContentEl) detailContentEl.hidden = true;
+        return;
+      }
+
+      const handle = String(build.handle || "").trim();
+      const status = normalizeStatus(build.status);
+      const items = getSnapshotItems(build);
+      const summary = String(build.summaryText || "").trim();
+      const openUrl = buildOpenUrl(build);
+      const total = getBuildTotal(build);
+      const subtotalDisplay = getSnapshotSubtotalDisplay(build);
+
+      setDetailActionHandles(handle);
+      if (detailEmptyEl) detailEmptyEl.hidden = true;
+      if (detailContentEl) detailContentEl.hidden = false;
+
+      section.querySelector("[data-detail-status]").textContent = status;
+      section.querySelector("[data-detail-visibility]").textContent = String(build.visibility || "private");
+      section.querySelector("[data-detail-name]").textContent = String(build.buildName || "Saved build");
+      section.querySelector("[data-detail-updated]").textContent = formatDate(build.updatedAt);
+      section.querySelector("[data-detail-created]").textContent = formatDate(build.createdAt);
+      section.querySelector("[data-detail-quote]").textContent = String(build.quoteCode || "-");
+      section.querySelector("[data-detail-total-items]").textContent = String(Number(build.totalItems) || items.length || 0);
+      section.querySelector("[data-detail-component-count]").textContent = items.length === 1 ? "1 component" : `${items.length} components`;
+      section.querySelector("[data-detail-total-price]").textContent = Number.isFinite(total) ? formatMoney(total) : (subtotalDisplay || "-");
+
+      const summaryEl = section.querySelector("[data-detail-summary]");
+      if (summary) {
+        summaryEl.textContent = summary;
+        summaryEl.hidden = false;
+      } else {
+        summaryEl.textContent = "";
+        summaryEl.hidden = true;
+      }
+
+      const openLink = section.querySelector("[data-detail-open]");
+      if (openLink && openUrl) {
+        openLink.href = openUrl;
+        openLink.hidden = false;
+      } else if (openLink) {
+        openLink.hidden = true;
+      }
+
+      const archiveButton = section.querySelector('.mb-page__detailActions [data-build-action="archive"]');
+      const unarchiveButton = section.querySelector('.mb-page__detailActions [data-build-action="unarchive"]');
+      const shareButton = section.querySelector('.mb-page__detailActions [data-build-action="share"]');
+      const screenshotButton = section.querySelector('.mb-page__detailActions [data-build-action="screenshot"]');
+
+      if (archiveButton) archiveButton.hidden = status !== "active";
+      if (unarchiveButton) unarchiveButton.hidden = status === "active";
+      if (shareButton) shareButton.hidden = status !== "active";
+      if (screenshotButton) screenshotButton.disabled = !items.length;
+
+      const fallbackEl = section.querySelector("[data-detail-fallback]");
+      if (fallbackEl) fallbackEl.hidden = items.length > 0;
+
+      componentsEl.innerHTML = "";
+      items.forEach((item) => {
+        componentsEl.appendChild(renderComponent(item));
+      });
+    }
+
+    function selectBuild(handle) {
+      selectedHandle = String(handle || "").trim();
+      const selected = findBuild(selectedHandle);
+      renderBuildList(currentBuilds);
+      renderBuildDetail(selected);
+    }
+
+    function renderBuilds(builds, preferredHandle = "") {
+      currentBuilds = builds;
+      const preferred = String(preferredHandle || selectedHandle || "").trim();
+      const preferredBuild = preferred ? findBuild(preferred) : null;
+      const activeBuild = builds.find((build) => normalizeStatus(build && build.status) === "active") || null;
+      const selected = preferredBuild || activeBuild || builds[0] || null;
+      selectedHandle = selected ? String(selected.handle || "").trim() : "";
+
+      renderBuildList(builds);
+      renderBuildDetail(selected);
+
+      if (countEl) {
+        countEl.textContent = builds.length === 1 ? "1 saved build loaded" : `${builds.length} saved builds loaded`;
+      }
+      if (listCountEl) {
+        const activeCount = builds.filter((build) => normalizeStatus(build && build.status) === "active").length;
+        const archivedCount = builds.length - activeCount;
+        listCountEl.textContent = `${activeCount} active${archivedCount ? `, ${archivedCount} archived` : ""}`;
+      }
+    }
+
+    function showError(message) {
+      hideAllStates();
+      if (errorTextEl) {
+        errorTextEl.textContent = String(message || "Could not load saved builds.");
+      }
+      if (errorEl) errorEl.hidden = false;
+    }
+
+    async function loadBuilds(preferredHandle = selectedHandle) {
+      hideAllStates();
+      if (statusEl) statusEl.hidden = false;
+
+      if (!listEndpoint) {
+        showError("The section is missing a proxy base path.");
+        return;
+      }
+
+      try {
+        const response = await fetch(listEndpoint, {
+          credentials: "same-origin",
+          headers: {
+            Accept: "application/json"
+          }
+        });
+
+        let data = null;
+        try {
+          data = await response.json();
+        } catch (error) {
+          data = null;
+        }
+
+        if (!response.ok || !data || !data.ok) {
+          showError(
+            data && data.error
+              ? data.error
+              : "The saved-build list route returned an unexpected response."
+          );
+          return;
+        }
+
+        if (!data.loggedIn) {
+          currentBuilds = [];
+          selectedHandle = "";
+          hideAllStates();
+          if (authEl) authEl.hidden = false;
+          return;
+        }
+
+        const builds = Array.isArray(data.builds) ? data.builds : [];
+        if (!builds.length) {
+          currentBuilds = [];
+          selectedHandle = "";
+          hideAllStates();
+          if (emptyEl) emptyEl.hidden = false;
+          return;
+        }
+
+        renderBuilds(builds, preferredHandle);
+        hideAllStates();
+        if (resultsEl) resultsEl.hidden = false;
+      } catch (error) {
+        showError(error && error.message ? error.message : "Network error while loading saved builds.");
+      }
+    }
+
+    async function downloadBuildScreenshot(build) {
+      const snapshot = getBuildSnapshot(build);
+      if (!snapshot || !getSnapshotItems(build).length) {
+        throw new Error("Screenshot is available only for builds with snapshot details.");
+      }
+      if (!window.UCP_PCB_QuoteImage || typeof window.UCP_PCB_QuoteImage.download !== "function") {
+        throw new Error("Quote screenshot renderer is missing from theme assets.");
+      }
+
+      const resolvedMode =
+        typeof window.UCP_PCB_QuoteImage.resolveMode === "function"
+          ? window.UCP_PCB_QuoteImage.resolveMode({
+              desktopMode: screenshotModeDesktop,
+              mobileMode: screenshotModeMobile
+            })
+          : screenshotModeDesktop;
+
+      return window.UCP_PCB_QuoteImage.download(snapshot, {
+        mode: resolvedMode,
+        quoteCode: String(build && build.quoteCode ? build.quoteCode : "").trim(),
+        quoteVersion: getBuildQuoteVersion(build) || "",
+        buildTitle: String(build && build.buildName ? build.buildName : "").trim(),
+        brandLogo: screenshotBrandLogo,
+        fontPreset: screenshotFontPreset,
+        log: false
+      });
+    }
+
+    function screenshotSuccessMessage(result) {
+      if (window.UCP_PCB_QuoteImage && typeof window.UCP_PCB_QuoteImage.resultMessage === "function") {
+        return window.UCP_PCB_QuoteImage.resultMessage(result, "Build screenshot");
+      }
+      return "Build screenshot downloaded.";
+    }
+
+    if (retryButton) {
+      retryButton.addEventListener("click", () => loadBuilds());
+    }
+
+    section.addEventListener("click", async (event) => {
+      const listItem = event.target.closest("[data-build-list-item]");
+      if (listItem && section.contains(listItem)) {
+        const handle = String(listItem.getAttribute("data-build-handle") || "").trim();
+        if (handle) selectBuild(handle);
+        return;
+      }
+
+      const actionButton = event.target.closest("button[data-build-action]");
+      if (!actionButton || !section.contains(actionButton)) return;
+
+      const action = String(actionButton.getAttribute("data-build-action") || "").trim();
+      const handle = String(actionButton.getAttribute("data-build-handle") || selectedHandle || "").trim();
+      const build = findBuild(handle);
+      if (!action || !handle || !build) return;
+
+      if (action === "screenshot") {
+        setHandleBusy(handle, true);
+        try {
+          const result = await downloadBuildScreenshot(build);
+          showFlash(screenshotSuccessMessage(result));
+        } catch (error) {
+          showFlash(error && error.message ? error.message : "Could not create the screenshot.", "error");
+        } finally {
+          setHandleBusy(handle, false);
+        }
+        return;
+      }
+
+      if (action === "delete") {
+        const confirmed = window.confirm(`Delete "${build.buildName || "Saved build"}" permanently?`);
+        if (!confirmed) return;
+      }
+
+      if (action === "rename") {
+        const nextName = window.prompt("Rename this build", String(build.buildName || "My Build"));
+        if (nextName === null) return;
+        setHandleBusy(handle, true);
+        try {
+          await postBuildAction(handle, "rename", { build_name: nextName });
+          await loadBuilds(handle);
+          showFlash("Build name updated.");
+        } catch (error) {
+          showFlash(error && error.message ? error.message : "Could not rename this build.", "error");
+        } finally {
+          setHandleBusy(handle, false);
+        }
+        return;
+      }
+
+      if (action === "share") {
+        const shareUrl = buildTaggedShareUrl(build, "my_builds_share");
+        if (!shareUrl) {
+          showFlash("This build does not have a shareable restore link yet.", "error");
+          return;
+        }
+
+        setHandleBusy(handle, true);
+        try {
+          await postBuildAction(handle, "share");
+          let shared = false;
+
+          if (navigator.share) {
+            try {
+              await navigator.share({
+                title: String(build.buildName || "Saved build"),
+                text: "Uncapped PC saved build",
+                url: shareUrl
+              });
+              shared = true;
+            } catch (error) {
+              shared = false;
+            }
+          }
+
+          if (!shared) {
+            const copied = await copyToClipboard(shareUrl);
+            if (!copied) {
+              throw new Error("Could not copy the share link.");
+            }
+          }
+
+          await loadBuilds(handle);
+          showFlash(shared ? "Share sheet opened." : "Share link copied.");
+        } catch (error) {
+          showFlash(error && error.message ? error.message : "Could not share this build.", "error");
+        } finally {
+          setHandleBusy(handle, false);
+        }
+        return;
+      }
+
+      if (action === "archive" || action === "unarchive" || action === "delete") {
+        setHandleBusy(handle, true);
+        try {
+          await postBuildAction(handle, action);
+          await loadBuilds(action === "delete" ? "" : handle);
+          if (action === "archive") {
+            showFlash("Build archived.");
+          } else if (action === "unarchive") {
+            showFlash("Build restored to your active list.");
+          } else {
+            showFlash("Build deleted.");
+          }
+        } catch (error) {
+          showFlash(
+            error && error.message
+              ? error.message
+              : action === "delete"
+                ? "Could not delete this build."
+                : "Could not update this build.",
+            "error"
+          );
+        } finally {
+          setHandleBusy(handle, false);
+        }
+      }
+    });
+
+    loadBuilds();
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "My Builds Page",
+  "settings": [
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Customer Account"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "My Builds"
+    },
+    {
+      "type": "textarea",
+      "id": "subheading",
+      "label": "Subheading",
+      "default": "View, reopen, share, rename, archive, and screenshot the builds saved from PC Builder."
+    },
+    {
+      "type": "text",
+      "id": "proxy_base_path",
+      "label": "Proxy base path",
+      "default": "/apps/upgrade-assist",
+      "info": "Matches the storefront app proxy root for the installed app."
+    },
+    {
+      "type": "url",
+      "id": "builder_page_url",
+      "label": "PC Builder page URL"
+    },
+    {
+      "type": "select",
+      "id": "quote_screenshot_mode",
+      "label": "My Builds screenshot layout",
+      "default": "detailed",
+      "options": [
+        {
+          "value": "detailed",
+          "label": "Detailed with quick description"
+        },
+        {
+          "value": "clean",
+          "label": "Clean item-only layout"
+        },
+        {
+          "value": "compact",
+          "label": "Compact My Builds-style layout"
+        },
+        {
+          "value": "compact_mobile",
+          "label": "Compact mobile version"
+        },
+        {
+          "value": "socials_compact",
+          "label": "Socials compact"
+        },
+        {
+          "value": "socials_compact_mobile",
+          "label": "Socials compact mobile"
+        },
+        {
+          "value": "quotation",
+          "label": "Quotation table"
+        },
+        {
+          "value": "quotation_mobile",
+          "label": "Quotation mobile table"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "quote_screenshot_mode_mobile",
+      "label": "My Builds mobile screenshot layout",
+      "default": "same_as_desktop",
+      "options": [
+        {
+          "value": "same_as_desktop",
+          "label": "Same as desktop"
+        },
+        {
+          "value": "detailed",
+          "label": "Detailed with quick description"
+        },
+        {
+          "value": "clean",
+          "label": "Clean item-only layout"
+        },
+        {
+          "value": "compact",
+          "label": "Compact My Builds-style layout"
+        },
+        {
+          "value": "compact_mobile",
+          "label": "Compact mobile version"
+        },
+        {
+          "value": "socials_compact",
+          "label": "Socials compact"
+        },
+        {
+          "value": "socials_compact_mobile",
+          "label": "Socials compact mobile"
+        },
+        {
+          "value": "quotation",
+          "label": "Quotation table"
+        },
+        {
+          "value": "quotation_mobile",
+          "label": "Quotation mobile table"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "quote_font_preset",
+      "label": "My Builds screenshot font preset",
+      "default": "inter_roboto",
+      "options": [
+        {
+          "value": "inter_roboto",
+          "label": "Inter + Roboto"
+        },
+        {
+          "value": "all_inter",
+          "label": "All Inter"
+        },
+        {
+          "value": "roboto_inter",
+          "label": "Roboto + Inter"
+        },
+        {
+          "value": "theme",
+          "label": "Theme font"
+        },
+        {
+          "value": "system",
+          "label": "System font"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Width",
+      "default": "page-width",
+      "options": [
+        {
+          "value": "page-width",
+          "label": "Page width"
+        },
+        {
+          "value": "full-width",
+          "label": "Full width"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "My Builds Page"
+    }
+  ]
+}
+{% endschema %}

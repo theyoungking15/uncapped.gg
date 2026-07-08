@@ -1,0 +1,1966 @@
+{%- comment -%}
+  File: sections/ucp-bundle-page.liquid
+
+  Updates in this version
+  1. Mobile. Show the CPU bundle header first (above the image).
+     Implementation. Duplicate header (mobile and desktop). CSS toggles visibility.
+
+  2. Sorting and filters
+     - Sort. Recommended, Lowest price, Highest price
+     - Filter. Brand (from product.vendor), Chipset (from product.metafields.custom.chipset)
+     Chipset is optional. If no chipset data exists, the chipset filter auto-hides.
+
+  3. Spacing controls remain. Width, padding, 60/40 columns, image sizing controls.
+
+  Notes for chipset
+  - Add a motherboard metafield: namespace custom, key chipset (single line text)
+  - Example values: B850, X870E, B650, etc.
+{%- endcomment -%}
+
+{%- liquid
+  assign cpu_ref = page.metafields.custom.bundle_cpu
+  assign builder_page_url = section.settings.pc_builder_page_url | strip
+  if builder_page_url == ''
+    assign builder_page_url = '/pages/pc-builder-2'
+  endif
+  assign cpu_product = blank
+  if cpu_ref != blank
+    if cpu_ref.value != blank
+      assign cpu_product = cpu_ref.value
+    else
+      assign cpu_product = cpu_ref
+    endif
+  endif
+
+  assign rules_def = shop.metaobjects['cpu_motherboard_bundle']
+
+  assign brand_mo = shop.metaobjects.brand['uncapped']
+  assign brand_logo_media = blank
+  if brand_mo != blank
+    if brand_mo.logo != blank
+      assign brand_logo_media = brand_mo.logo.value
+    elsif brand_mo.image != blank
+      assign brand_logo_media = brand_mo.image.value
+    elsif brand_mo.brand_logo != blank
+      assign brand_logo_media = brand_mo.brand_logo.value
+    endif
+  endif
+
+  capture brand_logo_url
+    if brand_logo_media != blank
+      echo brand_logo_media | image_url: width: 360
+    elsif shop.brand.logo != blank
+      echo shop.brand.logo | image_url: width: 360
+    elsif settings.logo != blank
+      echo settings.logo | image_url: width: 360
+    endif
+  endcapture
+-%}
+{% if section.settings.debug %}
+  <pre class="ucp-bundle-debug">rules_def probe:
+{{ rules_def['ryzen-7-9800x3d-gigabyte-b550m-aorus-elite'] }}
+{{ rules_def['gigabyte-b550m-aorus-elite'] }}
+  </pre>
+{% endif %}
+{%- liquid
+
+  assign candidate_collection = collections[section.settings.bundle_motherboards_collection]
+  if candidate_collection == blank
+    assign candidate_collection = collections['bundle-motherboard']
+  endif
+  if candidate_collection == blank
+    assign candidate_collection = collections['motherboards']
+  endif
+
+  assign debug_on = section.settings.debug | default: false
+
+  assign cpu_bench_handle = ''
+  if cpu_product != blank
+    assign cpu_bench_handle = cpu_product.metafields.custom.bench_cpu_handle | default: '' | strip | downcase
+    if cpu_bench_handle == ''
+      assign cpu_bench_handle = cpu_product.handle | default: '' | downcase
+    endif
+  endif
+
+  assign rows_packed = ''
+  assign matches = 0
+  assign debug_lines = ''
+
+  comment
+    Layout tokens
+  endcomment
+  assign wrapper_class = 'ucp-bundle-wrap'
+  if section.settings.width == 'page'
+    assign wrapper_class = wrapper_class | append: ' is-page'
+  else
+    assign wrapper_class = wrapper_class | append: ' is-full'
+  endif
+
+  assign max_width = section.settings.max_width | default: 1200 | plus: 0
+  if max_width < 720
+    assign max_width = 1200
+  endif
+
+  assign pad_desktop = section.settings.pad_desktop | default: 24 | plus: 0
+  assign pad_mobile  = section.settings.pad_mobile  | default: 16 | plus: 0
+
+  assign grid_gap = section.settings.grid_gap | default: 18 | plus: 0
+
+  assign left_percent = section.settings.left_percent | default: 60 | plus: 0
+  if left_percent < 50
+    assign left_percent = 60
+  endif
+  if left_percent > 75
+    assign left_percent = 60
+  endif
+  assign right_percent = 100 | minus: left_percent
+
+  assign hero_min_h_desktop = section.settings.hero_min_h_desktop | default: 420 | plus: 0
+  assign hero_min_h_mobile  = section.settings.hero_min_h_mobile  | default: 300 | plus: 0
+
+  assign frame_padding = section.settings.frame_padding | default: 14 | plus: 0
+
+  assign cpu_thumb_size = section.settings.cpu_thumb_size | default: 54 | plus: 0
+
+  assign mobo_zoom = section.settings.mobo_zoom | default: 100 | plus: 0
+  if mobo_zoom < 80
+    assign mobo_zoom = 80
+  endif
+  if mobo_zoom > 130
+    assign mobo_zoom = 130
+  endif
+  assign mobo_zoom_scale = mobo_zoom | times: 0.01
+
+  assign mobo_fit = section.settings.mobo_fit | default: 'contain' | downcase
+  if mobo_fit != 'cover' and mobo_fit != 'contain'
+    assign mobo_fit = 'contain'
+  endif
+
+  assign default_sort = section.settings.default_sort | default: 'price_asc' | downcase
+  if default_sort == '' or default_sort == 'recommended'
+    assign default_sort = 'price_asc'
+  endif
+  if default_sort != 'sort_order' and default_sort != 'price_asc' and default_sort != 'price_desc'
+    assign default_sort = 'price_asc'
+  endif
+-%}
+
+{%- if cpu_product == blank -%}
+  {%- if debug_on -%}
+    <div class="ucp-bundle-empty">
+      Bundle page debug. page.metafields.custom.bundle_cpu is empty.
+    </div>
+  {%- endif -%}
+
+{%- elsif rules_def == blank -%}
+  {%- if debug_on -%}
+    <div class="ucp-bundle-empty">
+      Bundle page debug. shop.metaobjects['cpu_motherboard_bundle'] not found.
+    </div>
+  {%- endif -%}
+
+{%- else -%}
+
+  {%- if candidate_collection == blank or candidate_collection.products_count == 0 -%}
+    <div class="ucp-bundle-empty">
+      No bundle motherboard collection found.
+    </div>
+
+  {%- else -%}
+
+    {%- liquid
+      assign max_mobos = section.settings.max_motherboards | default: 200 | plus: 0
+      if max_mobos < 1
+        assign max_mobos = 200
+      endif
+    -%}
+
+    {%- paginate candidate_collection.products by 250 -%}
+      {%- for mobo_product in candidate_collection.products -%}
+        {%- if forloop.index > max_mobos -%}{% break %}{%- endif -%}
+
+        {%- liquid
+          assign debug_reason = ''
+          assign rule_handle = ''
+
+          assign mobo_bench_handle = mobo_product.metafields.custom.bench_motherboard_handle | default: '' | strip | downcase
+          if mobo_bench_handle == ''
+            assign mobo_bench_handle = mobo_product.handle | default: '' | downcase
+          endif
+          if mobo_bench_handle == ''
+            assign debug_reason = 'skip:no_mobo_handle'
+            if debug_on
+              assign debug_line = mobo_product.handle | default: ''
+              assign debug_line = debug_line | append: ' | mobo_bench="' | append: mobo_bench_handle | append: '"'
+              assign debug_line = debug_line | append: ' | mobo_title="' | append: mobo_product.title | strip | append: '"'
+              assign debug_line = debug_line | append: ' | rule="' | append: rule_handle | append: '"'
+              assign debug_line = debug_line | append: ' | status=' | append: debug_reason
+              if debug_lines == ''
+                assign debug_lines = debug_line
+              else
+                assign debug_lines = debug_lines | append: '<br>' | append: debug_line
+              endif
+            endif
+            continue
+          endif
+
+          assign rule_handle = cpu_bench_handle | append: '-' | append: mobo_bench_handle
+          assign rule = rules_def[rule_handle]
+          if rule == blank
+            assign debug_reason = 'skip:no_rule'
+            if debug_on
+              assign debug_line = mobo_product.handle | default: ''
+              assign debug_line = debug_line | append: ' | mobo_bench="' | append: mobo_bench_handle | append: '"'
+              assign debug_line = debug_line | append: ' | mobo_title="' | append: mobo_product.title | strip | append: '"'
+              assign debug_line = debug_line | append: ' | rule="' | append: rule_handle | append: '"'
+              assign debug_line = debug_line | append: ' | status=' | append: debug_reason
+              if debug_lines == ''
+                assign debug_lines = debug_line
+              else
+                assign debug_lines = debug_lines | append: '<br>' | append: debug_line
+              endif
+            endif
+            continue
+          endif
+
+          assign active_flag = rule.is_active
+          unless active_flag == true or active_flag == 'true' or active_flag == 1 or active_flag == '1'
+            assign debug_reason = 'skip:inactive'
+            if debug_on
+              assign debug_line = mobo_product.handle | default: ''
+              assign debug_line = debug_line | append: ' | mobo_bench="' | append: mobo_bench_handle | append: '"'
+              assign debug_line = debug_line | append: ' | mobo_title="' | append: mobo_product.title | strip | append: '"'
+              assign debug_line = debug_line | append: ' | rule="' | append: rule_handle | append: '"'
+              assign debug_line = debug_line | append: ' | status=' | append: debug_reason
+              if debug_lines == ''
+                assign debug_lines = debug_line
+              else
+                assign debug_lines = debug_lines | append: '<br>' | append: debug_line
+              endif
+            endif
+            continue
+          endunless
+
+          assign matches = matches | plus: 1
+
+          assign cpu_var_ref = rule.cpu_variant
+          assign cpu_variant = cpu_var_ref
+          if cpu_var_ref != blank and cpu_var_ref.value != blank
+            assign cpu_variant = cpu_var_ref.value
+          endif
+          if cpu_variant == blank
+            assign cpu_variant = cpu_product.selected_or_first_available_variant
+          endif
+
+          assign mobo_var_ref = rule.motherboard_variant
+          if mobo_var_ref == blank
+            assign mobo_var_ref = rule.motherboard_varinat
+          endif
+          assign mobo_variant = mobo_var_ref
+          if mobo_var_ref != blank and mobo_var_ref.value != blank
+            assign mobo_variant = mobo_var_ref.value
+          endif
+          if mobo_variant == blank
+            assign mobo_variant = mobo_product.selected_or_first_available_variant
+          endif
+
+          assign cpu_price_cents = 0
+          if cpu_variant != blank and cpu_variant.price != blank
+            assign cpu_price_cents = cpu_variant.price | plus: 0
+          endif
+
+          assign mobo_price_cents = 0
+          if mobo_variant != blank and mobo_variant.price != blank
+            assign mobo_price_cents = mobo_variant.price | plus: 0
+          endif
+
+          assign discount_units = rule.discount_amount | default: 0 | plus: 0
+          assign savings_cents = discount_units | times: 100
+          assign bundle_price_cents = cpu_price_cents | plus: mobo_price_cents | minus: savings_cents
+
+          assign sort_num = rule.sort_order | default: 999999 | plus: 0
+          assign sort_key = sort_num | append: ''
+          assign sort_key = '000000' | append: sort_key
+          assign sort_key = sort_key | slice: -6, 6
+
+          assign cpu_variant_id = ''
+          if cpu_variant and cpu_variant.id
+            assign cpu_variant_id = cpu_variant.id
+          endif
+
+          assign mobo_variant_id = ''
+          if mobo_variant and mobo_variant.id
+            assign mobo_variant_id = mobo_variant.id
+          endif
+
+          if cpu_variant_id == '' or mobo_variant_id == ''
+            assign debug_reason = 'skip:missing_variant'
+            if debug_on
+              assign debug_line = mobo_product.handle | default: ''
+              assign debug_line = debug_line | append: ' | mobo_bench="' | append: mobo_bench_handle | append: '"'
+              assign debug_line = debug_line | append: ' | mobo_title="' | append: mobo_product.title | strip | append: '"'
+              assign debug_line = debug_line | append: ' | rule="' | append: rule_handle | append: '"'
+              assign debug_line = debug_line | append: ' | status=' | append: debug_reason
+              if debug_lines == ''
+                assign debug_lines = debug_line
+              else
+                assign debug_lines = debug_lines | append: '<br>' | append: debug_line
+              endif
+            endif
+            continue
+          endif
+
+          assign cpu_variant_match = false
+          for v in cpu_product.variants
+            if v.id == cpu_variant_id
+              assign cpu_variant_match = true
+              break
+            endif
+          endfor
+
+          unless cpu_variant_match
+            assign debug_reason = 'skip:cpu_variant_mismatch'
+            if debug_on
+              assign debug_line = mobo_product.handle | default: ''
+              assign debug_line = debug_line | append: ' | mobo_bench="' | append: mobo_bench_handle | append: '"'
+              assign debug_line = debug_line | append: ' | mobo_title="' | append: mobo_product.title | strip | append: '"'
+              assign debug_line = debug_line | append: ' | rule="' | append: rule_handle | append: '"'
+              assign debug_line = debug_line | append: ' | status=' | append: debug_reason
+              if debug_lines == ''
+                assign debug_lines = debug_line
+              else
+                assign debug_lines = debug_lines | append: '<br>' | append: debug_line
+              endif
+            endif
+            continue
+          endunless
+
+          assign mobo_variant_match = false
+          for v in mobo_product.variants
+            if v.id == mobo_variant_id
+              assign mobo_variant_match = true
+              break
+            endif
+          endfor
+
+          unless mobo_variant_match
+            assign debug_reason = 'skip:mobo_variant_mismatch'
+            if debug_on
+              assign debug_line = mobo_product.handle | default: ''
+              assign debug_line = debug_line | append: ' | mobo_bench="' | append: mobo_bench_handle | append: '"'
+              assign debug_line = debug_line | append: ' | mobo_title="' | append: mobo_product.title | strip | append: '"'
+              assign debug_line = debug_line | append: ' | rule="' | append: rule_handle | append: '"'
+              assign debug_line = debug_line | append: ' | status=' | append: debug_reason
+              if debug_lines == ''
+                assign debug_lines = debug_line
+              else
+                assign debug_lines = debug_lines | append: '<br>' | append: debug_line
+              endif
+            endif
+            continue
+          endunless
+
+          assign mobo_img = ''
+          if mobo_product.featured_image
+            assign mobo_img = mobo_product.featured_image | image_url: width: 1400
+          endif
+
+          comment
+            Filters. Brand from vendor. Chipset from custom.chipset (optional).
+          endcomment
+          assign brand_name = mobo_product.vendor | default: '' | strip
+          if brand_name == ''
+            assign brand_name = 'Other'
+          endif
+          assign brand_key = brand_name | handleize | downcase
+
+          assign chipset_name = ''
+          if mobo_product.metafields.custom and mobo_product.metafields.custom.chipset != blank
+            assign chipset_name = mobo_product.metafields.custom.chipset.value | default: mobo_product.metafields.custom.chipset
+          endif
+          assign chipset_name = chipset_name | strip
+          assign chipset_key = ''
+          if chipset_name != ''
+            assign chipset_key = chipset_name | handleize | downcase
+          endif
+
+          if debug_on
+            assign debug_reason = 'ok'
+            assign debug_line = mobo_product.handle | default: ''
+              assign debug_line = debug_line | append: ' | mobo_bench="' | append: mobo_bench_handle | append: '"'
+              assign debug_line = debug_line | append: ' | mobo_title="' | append: mobo_product.title | strip | append: '"'
+              assign debug_line = debug_line | append: ' | rule="' | append: rule_handle | append: '"'
+            assign debug_line = debug_line | append: ' | status=' | append: debug_reason
+            if debug_lines == ''
+              assign debug_lines = debug_line
+            else
+              assign debug_lines = debug_lines | append: '<br>' | append: debug_line
+            endif
+          endif
+        -%}
+
+        {%- capture row_html -%}
+          <label class="ucp-bundle-chooser__row"
+            data-ucp-bundle-row
+            data-sort-order="{{ sort_num }}"
+            data-bundle-price-cents="{{ bundle_price_cents }}"
+            data-brand-key="{{ brand_key | escape }}"
+            data-brand-name="{{ brand_name | escape }}"
+            data-chipset-key="{{ chipset_key | escape }}"
+            data-chipset-name="{{ chipset_name | escape }}"
+          >
+            <input
+              class="ucp-bundle-chooser__radio"
+              type="radio"
+              name="ucp_bundle_pick"
+              value="{{ mobo_product.handle | escape }}"
+              data-mobo-handle="{{ mobo_product.handle | escape }}"
+              data-cpu-variant-id="{{ cpu_variant_id }}"
+              data-mobo-variant-id="{{ mobo_variant_id }}"
+              data-mobo-title="{{ mobo_product.title | strip | escape }}"
+              data-mobo-url="{{ mobo_product.url | escape }}"
+              data-mobo-img="{{ mobo_img | escape }}"
+              data-bundle-price="{{ bundle_price_cents | money | strip_html | escape }}"
+              data-savings="{{ savings_cents | money | strip_html | escape }}"
+              data-savings-cents="{{ savings_cents }}"
+              aria-label="Select {{ mobo_product.title | escape }}"
+            >
+            <span class="ucp-bundle-chooser__row-main">
+              <span class="ucp-bundle-chooser__row-title">{{ mobo_product.title }}</span>
+              <span class="ucp-bundle-chooser__row-badges" aria-hidden="true"></span>
+            </span>
+
+            <span class="ucp-bundle-chooser__row-price">{{ bundle_price_cents | money }}</span>
+          </label>
+        {%- endcapture -%}
+
+        {%- capture pack -%}{{ sort_key }}::{{ row_html }}{%- endcapture -%}
+        {%- if rows_packed == '' -%}
+          {%- assign rows_packed = pack -%}
+        {%- else -%}
+          {%- assign rows_packed = rows_packed | append: '||' | append: pack -%}
+        {%- endif -%}
+
+      {%- endfor -%}
+    {%- endpaginate -%}
+
+    {%- assign rows = rows_packed | split: '||' | sort -%}
+
+    {%- if rows.size == 0 or rows_packed == '' -%}
+      <div class="ucp-bundle-empty">
+        No active bundle rules found for this CPU using the selected motherboard collection.
+      </div>
+    {%- else -%}
+
+      <div class="{{ wrapper_class }}"
+        style="
+          --ucp-bundle-max-width: {{ max_width }}px;
+          --ucp-bundle-pad-desktop: {{ pad_desktop }}px;
+          --ucp-bundle-pad-mobile: {{ pad_mobile }}px;
+          --ucp-bundle-gap: {{ grid_gap }}px;
+          --ucp-bundle-left-fr: {{ left_percent }}fr;
+          --ucp-bundle-right-fr: {{ right_percent }}fr;
+          --ucp-bundle-hero-min-h: {{ hero_min_h_desktop }}px;
+          --ucp-bundle-hero-min-h-mobile: {{ hero_min_h_mobile }}px;
+          --ucp-bundle-frame-pad: {{ frame_padding }}px;
+          --ucp-bundle-cpu-thumb: {{ cpu_thumb_size }}px;
+          --ucp-bundle-mobo-zoom: {{ mobo_zoom_scale }};
+        ">
+
+        <section class="ucp-bundle-chooser"
+          data-ucp-bundle-chooser
+          data-ucp-source-page-type="bundle_page"
+          data-ucp-source-campaign="{{ page.handle | default: page.title | handleize | escape }}"
+          data-ucp-source-content="{{ cpu_product.handle | default: cpu_product.title | handleize | escape }}"
+          data-default-sort="{{ default_sort }}"
+          data-pc-builder-url="{{ builder_page_url | escape }}"
+          data-bundle-page-handle="{{ page.handle | default: page.title | handleize | escape }}"
+          data-html2canvas-src="{{ 'html2canvas.min.js' | asset_url | escape }}"
+          data-screenshot-brand-logo="{{ brand_logo_url | strip | escape }}"
+          data-cpu-title="{{ cpu_product.title | strip | escape }}"
+          data-cpu-img="{% if cpu_product.featured_image %}{{ cpu_product.featured_image | image_url: width: 600 }}{% endif %}">
+
+          {%- comment -%}
+            Mobile header. Visible on mobile only.
+          {%- endcomment -%}
+          <div class="ucp-bundle-chooser__header ucp-bundle-chooser__header--mobile">
+            {%- if cpu_product.featured_image -%}
+              <img
+                class="ucp-bundle-chooser__cpu-thumb"
+                loading="lazy"
+                src="{{ cpu_product.featured_image | image_url: width: 200 }}"
+                alt="{{ cpu_product.title | escape }}">
+            {%- endif -%}
+
+            <div class="ucp-bundle-chooser__header-text">
+              <h2 class="ucp-bundle-chooser__title">{{ cpu_product.title }} Bundle</h2>
+              <div class="ucp-bundle-chooser__sub">
+                Pick one motherboard. Add both to cart. Discount applies via the existing automatic discount at checkout.
+              </div>
+            </div>
+          </div>
+
+          <div class="ucp-bundle-chooser__grid">
+
+            <!-- LEFT. Motherboard image emphasis -->
+            <div class="ucp-bundle-chooser__left">
+              <div class="ucp-bundle-chooser__image-frame">
+                <div class="ucp-bundle-chooser__img-wrap ucp-bundle-chooser__img-wrap--hero">
+                  <img
+                    class="ucp-bundle-chooser__img ucp-bundle-chooser__img--mobo ucp-fit-{{ mobo_fit }}"
+                    loading="lazy"
+                    src=""
+                    alt="Selected motherboard"
+                    data-ucp-selected-mobo-img>
+                </div>
+              </div>
+            </div>
+
+            <!-- RIGHT. Header (desktop only) + filters + options + summary + CTA -->
+            <div class="ucp-bundle-chooser__right">
+
+              {%- comment -%}
+                Desktop header. Hidden on mobile.
+              {%- endcomment -%}
+              <div class="ucp-bundle-chooser__header ucp-bundle-chooser__header--desktop">
+                {%- if cpu_product.featured_image -%}
+                  <img
+                    class="ucp-bundle-chooser__cpu-thumb"
+                    loading="lazy"
+                    src="{{ cpu_product.featured_image | image_url: width: 200 }}"
+                    alt="{{ cpu_product.title | escape }}">
+                {%- endif -%}
+
+                <div class="ucp-bundle-chooser__header-text">
+                  <h2 class="ucp-bundle-chooser__title">{{ cpu_product.title }} Bundle</h2>
+                  <div class="ucp-bundle-chooser__sub">
+                    Pick one motherboard. Add both to cart. Discount applies via the existing automatic discount at checkout.
+                  </div>
+                </div>
+              </div>
+
+              {% if section.settings.enable_filters %}
+                <div class="ucp-bundle-filters" data-ucp-bundle-filters>
+                  <div class="ucp-bundle-filters__row">
+                    <div class="ucp-filter">
+                      <label class="ucp-filter__label" for="ucpSort-{{ section.id }}">Sort</label>
+                      <select id="ucpSort-{{ section.id }}" class="ucp-filter__select" data-ucp-sort>
+                        <option value="sort_order" {% if default_sort == 'sort_order' %}selected{% endif %}>Rule order</option>
+                        <option value="price_asc" {% if default_sort == 'price_asc' %}selected{% endif %}>Lowest price</option>
+                        <option value="price_desc" {% if default_sort == 'price_desc' %}selected{% endif %}>Highest price</option>
+                      </select>
+                    </div>
+
+                    <div class="ucp-filter" data-ucp-brand-wrap>
+                      <label class="ucp-filter__label" for="ucpBrand-{{ section.id }}">Brand</label>
+                      <select id="ucpBrand-{{ section.id }}" class="ucp-filter__select" data-ucp-brand>
+                        <option value="">All</option>
+                      </select>
+                    </div>
+
+                    <div class="ucp-filter" data-ucp-chipset-wrap>
+                      <label class="ucp-filter__label" for="ucpChipset-{{ section.id }}">Chipset</label>
+                      <select id="ucpChipset-{{ section.id }}" class="ucp-filter__select" data-ucp-chipset>
+                        <option value="">All</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              {% endif %}
+
+              <div class="ucp-bundle-chooser__table" role="group" aria-label="Bundle motherboard options">
+                <div class="ucp-bundle-chooser__thead">
+                  <div class="ucp-bundle-chooser__th ucp-bundle-chooser__th--name">Motherboard</div>
+                  <div class="ucp-bundle-chooser__th ucp-bundle-chooser__th--price">Bundle price</div>
+                </div>
+
+                <div class="ucp-bundle-chooser__tbody" data-ucp-bundle-tbody>
+                  {%- for r in rows -%}
+                    {%- if r == blank -%}{% continue %}{%- endif -%}
+                    {%- assign parts = r | split: '::' -%}
+                    {%- if parts.size < 2 -%}{% continue %}{%- endif -%}
+                    {{ parts[1] }}
+                  {%- endfor -%}
+                </div>
+              </div>
+
+              <div class="ucp-bundle-summary" data-ucp-bundle-summary>
+                <div class="ucp-bundle-summary__label">Selected bundle</div>
+                <div class="ucp-bundle-summary__title" data-ucp-summary-title>
+                  CPU {{ cpu_product.title }} + Motherboard
+                </div>
+                <div class="ucp-bundle-summary__line">
+                  Bundle price <strong data-ucp-summary-price></strong>
+                </div>
+                <div class="ucp-bundle-summary__save" data-ucp-summary-save>
+                  You save <strong data-ucp-summary-savings></strong> vs buying separately
+                </div>
+              </div>
+
+              <div class="ucp-bundle-chooser__cta-wrap">
+                <button type="button"
+                  class="ucp-bundle-chooser__cta"
+                  data-ucp-open-builder
+                  disabled>
+                  Open in PC Builder
+                </button>
+
+                {% if section.settings.enable_add_to_cart_cta %}
+                  <button type="button"
+                    class="ucp-bundle-chooser__cta ucp-bundle-chooser__cta--secondary"
+                    data-ucp-add-selected
+                    data-ucp-track-click
+                    data-ucp-track-cta="add_bundle_to_cart"
+                    data-ucp-track-page-type="bundle_page"
+                    disabled>
+                    Add CPU + motherboard to cart
+                  </button>
+                {% endif %}
+
+                <div class="ucp-bundle-chooser__error" data-ucp-bundle-error hidden></div>
+              </div>
+
+              <div class="ucp-bundle-dev" data-ucp-bundle-dev hidden>
+                <div class="ucp-bundle-dev__eyebrow">Dev tools</div>
+                <div class="ucp-bundle-dev__title">Visible bundle screenshot</div>
+                <div class="ucp-bundle-dev__text">
+                  Downloads one promo image using the current sort and filter state on this bundle page.
+                </div>
+                <button type="button" class="ucp-bundle-dev__btn" data-ucp-bundle-dev-screenshot>
+                  Download visible bundle price list
+                </button>
+                <div class="ucp-bundle-dev__status" data-ucp-bundle-dev-status hidden></div>
+              </div>
+
+            </div>
+          </div>
+
+          {%- if debug_on -%}
+            <pre class="ucp-bundle-debug">UCP Bundle Debug
+cpu: {{ cpu_product.title }}
+cpu_bench_handle: {{ cpu_bench_handle }}
+candidate_collection: {{ candidate_collection.handle | default: 'motherboards' }}
+candidate_products: {{ candidate_collection.products_count | default: 0 }}
+matched_rules: {{ matches }}
+debug_lines:
+{{ debug_lines }}</pre>
+          {%- endif -%}
+
+        </section>
+      </div>
+
+      <style>
+        .ucp-bundle-wrap {
+          width: 100%;
+          box-sizing: border-box;
+          padding-inline: var(--ucp-bundle-pad-desktop, 24px);
+        }
+        .ucp-bundle-wrap.is-page {
+          max-width: var(--ucp-bundle-max-width, var(--page-width, 1200px));
+          margin-left: auto;
+          margin-right: auto;
+        }
+        .ucp-bundle-wrap.is-full {
+          max-width: none;
+        }
+
+        .ucp-bundle-chooser__grid {
+          display: grid;
+          grid-template-columns: minmax(0, var(--ucp-bundle-left-fr, 60fr)) minmax(0, var(--ucp-bundle-right-fr, 40fr));
+          gap: var(--ucp-bundle-gap, 18px);
+          align-items: start;
+        }
+
+        .ucp-bundle-chooser__image-frame {
+          border: 2px solid #111;
+          border-radius: 14px;
+          background: #fff;
+          padding: var(--ucp-bundle-frame-pad, 14px);
+        }
+
+        .ucp-bundle-chooser__img-wrap {
+          border-radius: 12px;
+          border: 1px solid rgba(0,0,0,.08);
+          background: rgba(0,0,0,.03);
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .ucp-bundle-chooser__img-wrap--hero {
+          min-height: var(--ucp-bundle-hero-min-h, 420px);
+        }
+
+        .ucp-bundle-chooser__img {
+          width: 100%;
+          height: 100%;
+          display: block;
+          transform: scale(var(--ucp-bundle-mobo-zoom, 1));
+          transform-origin: center;
+        }
+        .ucp-bundle-chooser__img.ucp-fit-contain { object-fit: contain; }
+        .ucp-bundle-chooser__img.ucp-fit-cover { object-fit: cover; }
+
+        .ucp-bundle-chooser__header {
+          display: grid;
+          grid-template-columns: auto 1fr;
+          gap: 10px;
+          align-items: center;
+          margin-bottom: 10px;
+        }
+        .ucp-bundle-chooser__header--mobile { display: none; }
+        .ucp-bundle-chooser__header--desktop { display: grid; }
+
+        .ucp-bundle-chooser__cpu-thumb {
+          width: var(--ucp-bundle-cpu-thumb, 54px);
+          height: var(--ucp-bundle-cpu-thumb, 54px);
+          object-fit: contain;
+          border-radius: 12px;
+          border: 1px solid rgba(0,0,0,.08);
+          background: rgba(0,0,0,.03);
+        }
+
+        .ucp-bundle-chooser__title {
+          margin: 0;
+          font-size: 1.35rem;
+          line-height: 1.2;
+        }
+        .ucp-bundle-chooser__sub {
+          opacity: .75;
+          margin-top: 2px;
+          font-size: .95rem;
+        }
+
+        .ucp-bundle-filters {
+          margin-bottom: 10px;
+        }
+        .ucp-bundle-filters__row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          align-items: flex-end;
+        }
+        .ucp-filter {
+          display: grid;
+          gap: 4px;
+        }
+        .ucp-filter__label {
+          font-size: .75rem;
+          text-transform: uppercase;
+          letter-spacing: .10em;
+          opacity: .75;
+        }
+        .ucp-filter__select {
+          min-width: 160px;
+          max-width: 100%;
+          padding: 8px 12px;
+          border-radius: 999px;
+          border: 1px solid rgba(0,0,0,.14);
+          background: #fff;
+          font-size: .9rem;
+          line-height: 1.2;
+        }
+
+        .ucp-bundle-chooser__table {
+          border: 1px solid rgba(0,0,0,.10);
+          border-radius: 12px;
+          overflow: hidden;
+          background: #fff;
+        }
+
+        .ucp-bundle-chooser__thead,
+        .ucp-bundle-chooser__row {
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 12px;
+          align-items: center;
+        }
+
+        .ucp-bundle-chooser__thead {
+          padding: 10px 12px;
+          background: rgba(0,0,0,.03);
+          border-bottom: 1px solid rgba(0,0,0,.08);
+          font-size: .82rem;
+          text-transform: uppercase;
+          letter-spacing: .08em;
+          opacity: .85;
+        }
+
+        .ucp-bundle-chooser__tbody { display: grid; }
+
+        .ucp-bundle-chooser__row {
+          padding: 12px;
+          cursor: pointer;
+          border-bottom: 1px solid rgba(0,0,0,.08);
+          position: relative;
+        }
+        .ucp-bundle-chooser__row:last-child { border-bottom: 0; }
+
+        .ucp-bundle-chooser__radio {
+          position: absolute;
+          inset: 0 auto auto 12px;
+          transform: translateY(14px);
+          width: 16px;
+          height: 16px;
+        }
+
+        .ucp-bundle-chooser__row-main {
+          display: grid;
+          gap: 4px;
+          padding-left: 26px;
+          min-width: 0;
+        }
+
+        .ucp-bundle-chooser__row-title {
+          font-weight: 650;
+          line-height: 1.25;
+        }
+
+        .ucp-bundle-chooser__row-price {
+          font-weight: 750;
+          white-space: nowrap;
+          font-variant-numeric: tabular-nums;
+        }
+
+        .ucp-bundle-chooser__row:has(.ucp-bundle-chooser__radio:checked) {
+          background: rgba(0,0,0,.03);
+        }
+
+        .ucp-bundle-summary {
+          margin-top: 12px;
+          border: 1px solid rgba(0,0,0,.10);
+          border-radius: 12px;
+          padding: 12px;
+          background: #fff;
+          display: grid;
+          gap: 6px;
+        }
+
+        .ucp-bundle-summary__label {
+          font-size: .78rem;
+          opacity: .75;
+          text-transform: uppercase;
+          letter-spacing: .10em;
+        }
+
+        .ucp-bundle-summary__title {
+          font-weight: 750;
+          line-height: 1.25;
+        }
+
+        .ucp-bundle-summary__line { opacity: .9; }
+
+        .ucp-bundle-summary__save {
+          font-size: 1.05rem;
+          font-weight: 650;
+        }
+
+        .ucp-bundle-chooser__cta-wrap {
+          margin-top: 12px;
+          display: grid;
+          gap: 8px;
+          justify-items: start;
+        }
+
+        .ucp-bundle-chooser__cta {
+          border-radius: 999px;
+          border: 1px solid #111;
+          background: #111;
+          color: #fff;
+          padding: 14px 18px;
+          font-size: 1.05rem;
+          font-weight: 700;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+        .ucp-bundle-chooser__cta[disabled] {
+          opacity: .55;
+          cursor: default;
+        }
+        .ucp-bundle-chooser__cta--secondary {
+          border-color: rgba(17,17,17,.16);
+          background: #fff;
+          color: #111;
+        }
+        .ucp-bundle-chooser__cta--secondary:hover:not([disabled]) {
+          border-color: #111;
+          background: rgba(0,0,0,.04);
+        }
+
+        .ucp-bundle-chooser__error {
+          font-size: .9rem;
+          color: #b91c1c;
+        }
+
+        .ucp-bundle-dev {
+          margin-top: 14px;
+          border: 1px dashed rgba(17,17,17,.28);
+          border-radius: 14px;
+          padding: 14px;
+          background: rgba(17,17,17,.035);
+          display: grid;
+          gap: 8px;
+        }
+        .ucp-bundle-dev[hidden] { display: none; }
+        .ucp-bundle-dev__eyebrow {
+          font-size: .72rem;
+          text-transform: uppercase;
+          letter-spacing: .12em;
+          opacity: .62;
+          font-weight: 750;
+        }
+        .ucp-bundle-dev__title {
+          font-weight: 800;
+          line-height: 1.2;
+        }
+        .ucp-bundle-dev__text,
+        .ucp-bundle-dev__status {
+          font-size: .88rem;
+          line-height: 1.4;
+          opacity: .78;
+        }
+        .ucp-bundle-dev__status.is-error {
+          opacity: 1;
+          color: #b91c1c;
+        }
+        .ucp-bundle-dev__btn {
+          justify-self: start;
+          border-radius: 999px;
+          border: 1px solid rgba(17,17,17,.18);
+          background: #fff;
+          color: #111;
+          padding: 10px 14px;
+          font-size: .92rem;
+          font-weight: 750;
+          cursor: pointer;
+        }
+        .ucp-bundle-dev__btn:hover:not([disabled]) {
+          border-color: #111;
+          background: rgba(255,255,255,.72);
+        }
+        .ucp-bundle-dev__btn[disabled] {
+          opacity: .6;
+          cursor: default;
+        }
+
+        .ucp-bundle-empty {
+          padding: 12px;
+          border: 1px dashed rgba(0,0,0,.22);
+          border-radius: 12px;
+          opacity: .85;
+        }
+
+        .ucp-bundle-debug {
+          margin-top: 14px;
+          padding: 12px;
+          border: 1px dashed rgba(0,0,0,.25);
+          border-radius: 12px;
+          font-size: 12px;
+          white-space: pre-wrap;
+        }
+
+        @media (max-width: 720px) {
+          .ucp-bundle-wrap { padding-inline: var(--ucp-bundle-pad-mobile, 16px); }
+
+          .ucp-bundle-chooser__header--mobile { display: grid; }
+          .ucp-bundle-chooser__header--desktop { display: none; }
+
+          .ucp-bundle-chooser__grid {
+            grid-template-columns: 1fr;
+            gap: 14px;
+          }
+
+          .ucp-bundle-chooser__img-wrap--hero {
+            min-height: var(--ucp-bundle-hero-min-h-mobile, 300px);
+          }
+
+          .ucp-filter__select {
+            min-width: 140px;
+          }
+
+          .ucp-bundle-chooser__cta-wrap { justify-items: stretch; }
+          .ucp-bundle-chooser__cta { width: 100%; }
+        }
+      </style>
+
+      <script>
+        (function () {
+          var root = document.querySelector('[data-ucp-bundle-chooser]');
+          if (!root) return;
+
+          var tbody = root.querySelector('[data-ucp-bundle-tbody]');
+          var moboImgEl = root.querySelector('[data-ucp-selected-mobo-img]');
+          var addBtn = root.querySelector('[data-ucp-add-selected]');
+          var builderBtn = root.querySelector('[data-ucp-open-builder]');
+          var errEl = root.querySelector('[data-ucp-bundle-error]');
+          var builderUrl = root.getAttribute('data-pc-builder-url') || '/pages/pc-builder-2';
+          var bundlePageHandle = root.getAttribute('data-bundle-page-handle') || '';
+
+          var cpuTitle = root.getAttribute('data-cpu-title') || '';
+          var sumTitleEl = root.querySelector('[data-ucp-summary-title]');
+          var sumPriceEl = root.querySelector('[data-ucp-summary-price]');
+          var sumSavingsEl = root.querySelector('[data-ucp-summary-savings]');
+
+          var sortSelect = root.querySelector('[data-ucp-sort]');
+          var brandWrap = root.querySelector('[data-ucp-brand-wrap]');
+          var brandSelect = root.querySelector('[data-ucp-brand]');
+          var chipsetWrap = root.querySelector('[data-ucp-chipset-wrap]');
+          var chipsetSelect = root.querySelector('[data-ucp-chipset]');
+          var devPanel = root.querySelector('[data-ucp-bundle-dev]');
+          var devShotBtn = root.querySelector('[data-ucp-bundle-dev-screenshot]');
+          var devStatusEl = root.querySelector('[data-ucp-bundle-dev-status]');
+          var html2canvasSrc = root.getAttribute('data-html2canvas-src') || '';
+          var BUNDLE_SCREENSHOT_SCALE = 1.25;
+          var BUNDLE_SCREENSHOT_IMAGE_TIMEOUT = 8000;
+          var isDevMode = false;
+
+          try {
+            isDevMode = new URLSearchParams(window.location.search).get('dev') === '1';
+          } catch (err) {
+            isDevMode = false;
+          }
+
+          if (devPanel) {
+            devPanel.hidden = !isDevMode;
+          }
+
+          function clearError() {
+            if (!errEl) return;
+            errEl.hidden = true;
+            errEl.textContent = '';
+          }
+
+          function showError(msg) {
+            if (!errEl) return;
+            errEl.hidden = false;
+            errEl.textContent = msg || 'Could not add bundle. Please try again.';
+          }
+
+          function getRadios() {
+            return Array.prototype.slice.call(root.querySelectorAll('input[name="ucp_bundle_pick"]'));
+          }
+
+          function getRows() {
+            return Array.prototype.slice.call(root.querySelectorAll('[data-ucp-bundle-row]'));
+          }
+
+          function getSelectedRadio() {
+            var radios = getRadios();
+            for (var i = 0; i < radios.length; i++) {
+              if (radios[i].checked) return radios[i];
+            }
+            return null;
+          }
+
+          function firstVisibleRadio() {
+            var rows = getRows();
+            for (var i = 0; i < rows.length; i++) {
+              if (rows[i].style.display === 'none') continue;
+              var r = rows[i].querySelector('input[name="ucp_bundle_pick"]');
+              if (r) return r;
+            }
+            return null;
+          }
+
+          function applySelected(radio) {
+            if (!radio) {
+              if (addBtn) addBtn.disabled = true;
+              if (builderBtn) builderBtn.disabled = true;
+              return;
+            }
+
+            clearError();
+
+            var moboTitle = radio.getAttribute('data-mobo-title') || 'Motherboard';
+            var bundlePrice = radio.getAttribute('data-bundle-price') || '';
+            var savings = radio.getAttribute('data-savings') || '';
+            var moboImg = radio.getAttribute('data-mobo-img') || '';
+
+            if (sumTitleEl) sumTitleEl.textContent = 'CPU ' + cpuTitle + ' + ' + moboTitle;
+            if (sumPriceEl) sumPriceEl.textContent = bundlePrice;
+            if (sumSavingsEl) sumSavingsEl.textContent = savings;
+
+            if (moboImgEl) {
+              if (moboImg) {
+                moboImgEl.src = moboImg;
+                moboImgEl.alt = moboTitle;
+              }
+            }
+
+            if (addBtn) addBtn.disabled = false;
+            if (builderBtn) builderBtn.disabled = false;
+          }
+
+          function openSelectedInBuilder() {
+            var picked = getSelectedRadio();
+            if (!picked) return;
+
+            clearError();
+
+            var cpuId = picked.getAttribute('data-cpu-variant-id');
+            var moboId = picked.getAttribute('data-mobo-variant-id');
+            if (!cpuId || !moboId) {
+              showError('Selected bundle is missing variant ids.');
+              return;
+            }
+
+            try {
+              var url = new URL(builderUrl, window.location.origin);
+              url.searchParams.set('cpu', String(cpuId));
+              url.searchParams.set('mb', String(moboId));
+              var moboHandle = picked.getAttribute('data-mobo-handle') || picked.value || '';
+              applyMarketingParamsToUrl(url, {
+                sourceTag: 'bundle_page',
+                campaign: bundlePageHandle,
+                content: moboHandle
+              });
+              if (window.UCP_SOURCE_TRACKER && typeof window.UCP_SOURCE_TRACKER.logCtaClick === 'function') {
+                window.UCP_SOURCE_TRACKER.logCtaClick({
+                  pageType: 'bundle_page',
+                  ctaName: 'open_in_pc_builder',
+                  targetUrl: url.toString()
+                });
+              }
+              window.location.assign(url.toString());
+            } catch (err) {
+              showError('Could not open this bundle in PC Builder.');
+            }
+          }
+
+          function applyMarketingParamsToUrl(url, fallbacks) {
+            if (!url || !url.searchParams) return;
+            fallbacks = fallbacks || {};
+
+            if (window.UCP_SOURCE_TRACKER && typeof window.UCP_SOURCE_TRACKER.decorateUrl === 'function') {
+              try {
+                var decorated = new URL(window.UCP_SOURCE_TRACKER.decorateUrl(url.toString(), fallbacks));
+                url.search = decorated.search;
+                return;
+              } catch (err) {}
+            }
+
+            try {
+              var current = new URLSearchParams(window.location.search || '');
+              var sourceValue = current.get('src') || current.get('source') || current.get('ref') || fallbacks.sourceTag || '';
+              var campaignValue = current.get('campaign') || current.get('utm_campaign') || fallbacks.campaign || '';
+              var contentValue = current.get('content') || current.get('utm_content') || fallbacks.content || '';
+
+              if (!url.searchParams.get('src') && !url.searchParams.get('source') && !url.searchParams.get('ref') && sourceValue) {
+                url.searchParams.set('src', sourceValue);
+              }
+              if (!url.searchParams.get('campaign') && !url.searchParams.get('utm_campaign') && campaignValue) {
+                url.searchParams.set('campaign', campaignValue);
+              }
+              if (!url.searchParams.get('content') && !url.searchParams.get('utm_content') && contentValue) {
+                url.searchParams.set('content', contentValue);
+              }
+            } catch (err) {}
+          }
+
+          function addSelectedToCart() {
+            var picked = getSelectedRadio();
+            if (!picked) return;
+
+            clearError();
+
+            var cpuId = picked.getAttribute('data-cpu-variant-id');
+            var moboId = picked.getAttribute('data-mobo-variant-id');
+            if (!cpuId || !moboId) {
+              showError('Selected bundle is missing variant ids.');
+              return;
+            }
+
+            if (addBtn) {
+              addBtn.disabled = true;
+              addBtn.setAttribute('data-loading', 'true');
+              addBtn.textContent = 'Adding...';
+            }
+
+            var payload = {
+              items: [
+                { id: cpuId, quantity: 1 },
+                { id: moboId, quantity: 1 }
+              ]
+            };
+
+            fetch('/cart/add.js', {
+              method: 'POST',
+              credentials: 'same-origin',
+              headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+              body: JSON.stringify(payload)
+            })
+            .then(function (r) {
+              if (!r.ok) throw new Error('Cart add failed');
+              return r.json();
+            })
+            .then(function () {
+              if (addBtn) {
+                addBtn.textContent = 'Added to cart';
+                addBtn.removeAttribute('data-loading');
+              }
+              document.dispatchEvent(new CustomEvent('uncapped:cart-updated'));
+            })
+            .catch(function () {
+              if (addBtn) {
+                addBtn.disabled = false;
+                addBtn.textContent = 'Add CPU + motherboard to cart';
+                addBtn.removeAttribute('data-loading');
+              }
+              showError('Could not add bundle. Please try again.');
+            });
+          }
+
+          function setDevStatus(msg, isError) {
+            if (!devStatusEl) return;
+            devStatusEl.hidden = !msg;
+            devStatusEl.textContent = msg || '';
+            devStatusEl.classList.toggle('is-error', !!isError);
+          }
+
+          function loadHtml2Canvas() {
+            if (window.html2canvas) return Promise.resolve(window.html2canvas);
+            if (!html2canvasSrc) return Promise.reject(new Error('Missing html2canvas asset URL.'));
+
+            if (window.__ucpBundleHtml2CanvasPromise) {
+              return window.__ucpBundleHtml2CanvasPromise;
+            }
+
+            window.__ucpBundleHtml2CanvasPromise = new Promise(function (resolve, reject) {
+              var script = document.createElement('script');
+              script.src = html2canvasSrc;
+              script.async = true;
+              script.onload = function () {
+                if (window.html2canvas) {
+                  resolve(window.html2canvas);
+                } else {
+                  reject(new Error('html2canvas did not load.'));
+                }
+              };
+              script.onerror = function () {
+                reject(new Error('Could not load html2canvas.'));
+              };
+              document.head.appendChild(script);
+            });
+
+            return window.__ucpBundleHtml2CanvasPromise;
+          }
+
+          function makeEl(tag, className, text, cssText) {
+            var node = document.createElement(tag);
+            if (className) node.className = className;
+            if (typeof text === 'string') node.textContent = text;
+            if (cssText) node.style.cssText = cssText;
+            return node;
+          }
+
+          function selectedOptionText(selectEl, fallback) {
+            if (!selectEl || !selectEl.value) return fallback || 'All';
+            var opt = selectEl.options[selectEl.selectedIndex];
+            return opt ? opt.textContent : (fallback || 'All');
+          }
+
+          function bundleScreenshotDate() {
+            try {
+              return new Date().toLocaleDateString('en-PH', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+              });
+            } catch (err) {
+              return new Date().toISOString().slice(0, 10);
+            }
+          }
+
+          function bundleScreenshotFileDate() {
+            try {
+              return new Date().toISOString().slice(0, 10);
+            } catch (err) {
+              return 'bundle-prices';
+            }
+          }
+
+          function safeFilePart(value) {
+            return String(value || 'bundles')
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/^-+|-+$/g, '')
+              .slice(0, 80) || 'bundles';
+          }
+
+          function numberAttr(el, name, fallback) {
+            var raw = el ? parseFloat(el.getAttribute(name) || '') : NaN;
+            return isNaN(raw) ? (fallback || 0) : raw;
+          }
+
+          function getVisibleBundleItems() {
+            return getRows()
+              .filter(function (row) {
+                return row.style.display !== 'none';
+              })
+              .map(function (row) {
+                var radio = row.querySelector('input[name="ucp_bundle_pick"]');
+                var titleEl = row.querySelector('.ucp-bundle-chooser__row-title');
+                var priceEl = row.querySelector('.ucp-bundle-chooser__row-price');
+                return {
+                  title: radio ? (radio.getAttribute('data-mobo-title') || radio.value || '') : (titleEl ? titleEl.textContent : ''),
+                  price: radio ? (radio.getAttribute('data-bundle-price') || '') : (priceEl ? priceEl.textContent : ''),
+                  savings: radio ? (radio.getAttribute('data-savings') || '') : '',
+                  priceCents: numberAttr(row, 'data-bundle-price-cents', 0),
+                  savingsCents: numberAttr(radio, 'data-savings-cents', 0),
+                  chipset: row.getAttribute('data-chipset-name') || ''
+                };
+              });
+          }
+
+          function findMinItem(items, key) {
+            var best = null;
+            items.forEach(function (item) {
+              var val = Number(item && item[key]);
+              if (!Number.isFinite(val)) return;
+              if (!best || val < best.value) {
+                best = { item: item, value: val };
+              }
+            });
+            return best ? best.item : null;
+          }
+
+          function findMaxItem(items, key) {
+            var best = null;
+            items.forEach(function (item) {
+              var val = Number(item && item[key]);
+              if (!Number.isFinite(val)) return;
+              if (!best || val > best.value) {
+                best = { item: item, value: val };
+              }
+            });
+            return best ? best.item : null;
+          }
+
+          function buildSocialIcon(url, label, size) {
+            var icon = makeEl('div', '', '', [
+              'width:' + size + 'px',
+              'height:' + size + 'px',
+              'border-radius:999px',
+              'display:flex',
+              'align-items:center',
+              'justify-content:center',
+              'overflow:hidden'
+            ].join(';'));
+
+            var img = makeEl('img');
+            img.src = url;
+            img.alt = label || '';
+            img.crossOrigin = 'anonymous';
+            img.referrerPolicy = 'no-referrer';
+            img.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block;';
+            icon.appendChild(img);
+            return icon;
+          }
+
+          function appendBundleSocials(parent) {
+            var socials = makeEl('div', '', '', 'display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:24px;');
+            var icons = makeEl('div', '', '', 'display:flex;align-items:center;justify-content:center;gap:10px;');
+            [
+              { label: 'Facebook', url: 'https://cdn.shopify.com/s/files/1/0681/3368/3337/files/FB.png?v=1769187883' },
+              { label: 'Instagram', url: 'https://cdn.shopify.com/s/files/1/0681/3368/3337/files/IG.png?v=1769187884' },
+              { label: 'YouTube', url: 'https://cdn.shopify.com/s/files/1/0681/3368/3337/files/youtube.png?v=1769187883' },
+              { label: 'TikTok', url: 'https://cdn.shopify.com/s/files/1/0681/3368/3337/files/Tiktok.png?v=1769187884' }
+            ].forEach(function (icon) {
+              icons.appendChild(buildSocialIcon(icon.url, icon.label, 30));
+            });
+
+            socials.appendChild(icons);
+            socials.appendChild(makeEl('div', '', '', 'width:220px;height:1px;background:rgba(17,17,17,.55);'));
+            socials.appendChild(makeEl('div', '', 'Follow us @ Uncapped PC', 'font-size:13px;font-weight:500;letter-spacing:.02em;color:rgba(17,17,17,.72);'));
+            parent.appendChild(socials);
+          }
+
+          function buildBundleScreenshotNode(items) {
+            var cpuImg = root.getAttribute('data-cpu-img') || '';
+            var brandLogo = root.getAttribute('data-screenshot-brand-logo') || '';
+            var sortLabel = selectedOptionText(sortSelect, 'Lowest price');
+            var chipsetLabel = selectedOptionText(chipsetSelect, 'All chipsets');
+            var lowestItem = findMinItem(items, 'priceCents') || items[0];
+            var maxSavingsItem = findMaxItem(items, 'savingsCents') || null;
+            var maxSavings = maxSavingsItem && maxSavingsItem.savingsCents > 0 ? maxSavingsItem.savings : '';
+            var minHeight = Math.max(1350, 650 + (items.length * 74));
+
+            var wrap = makeEl('div', '', '', 'position:fixed;left:-12000px;top:0;width:1080px;z-index:-1;pointer-events:none;');
+            var card = makeEl('div', '', '', [
+              'width:1080px',
+              'min-height:' + minHeight + 'px',
+              'box-sizing:border-box',
+              'padding:52px 64px 44px',
+              'background:#f4f0e9',
+              'color:#111',
+              'font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif',
+              'letter-spacing:-0.01em',
+              'position:relative',
+              'overflow:hidden'
+            ].join(';'));
+            wrap.appendChild(card);
+
+            card.appendChild(makeEl('div', '', '', 'position:absolute;inset:0 0 auto 0;height:18px;background:#111;'));
+            card.appendChild(makeEl('div', '', '', 'position:absolute;right:-150px;top:28px;width:420px;height:420px;border-radius:999px;background:radial-gradient(circle,rgba(17,17,17,.13),rgba(17,17,17,0) 68%);'));
+            card.appendChild(makeEl('div', '', '', 'position:absolute;left:-220px;top:340px;width:520px;height:520px;border-radius:999px;background:radial-gradient(circle,rgba(17,17,17,.08),rgba(17,17,17,0) 70%);'));
+
+            var header = makeEl('div', '', '', 'position:relative;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin:12px 0 28px;');
+            header.appendChild(makeEl('div'));
+            var logoSlot = makeEl('div', '', '', 'display:flex;align-items:center;justify-content:center;min-height:64px;');
+            if (brandLogo) {
+              var logo = makeEl('img');
+              logo.src = brandLogo;
+              logo.alt = 'Uncapped PC';
+              logo.crossOrigin = 'anonymous';
+              logo.referrerPolicy = 'no-referrer';
+              logo.style.cssText = 'max-width:230px;max-height:64px;object-fit:contain;display:block;';
+              logoSlot.appendChild(logo);
+            }
+            header.appendChild(logoSlot);
+            header.appendChild(makeEl('div', '', bundleScreenshotDate(), 'font-size:16px;font-weight:750;text-align:right;color:rgba(17,17,17,.62);'));
+            card.appendChild(header);
+
+            var hero = makeEl('div', '', '', 'position:relative;display:grid;grid-template-columns:240px 1fr;gap:30px;align-items:center;background:linear-gradient(135deg,#fff 0%,#fbfaf7 56%,#ece7df 100%);border:1px solid rgba(17,17,17,.10);border-radius:34px;padding:28px 32px;margin-bottom:26px;box-shadow:0 22px 70px rgba(17,17,17,.11);overflow:hidden;');
+            hero.appendChild(makeEl('div', '', '', 'position:absolute;right:-70px;bottom:-120px;width:310px;height:310px;border-radius:999px;background:rgba(17,17,17,.06);'));
+            var imgBox = makeEl('div', '', '', 'position:relative;width:240px;height:240px;border-radius:30px;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(17,17,17,.07),0 18px 40px rgba(17,17,17,.08);');
+            if (cpuImg) {
+              var img = makeEl('img');
+              img.src = cpuImg;
+              img.alt = cpuTitle || 'CPU';
+              img.crossOrigin = 'anonymous';
+              img.referrerPolicy = 'no-referrer';
+              img.style.cssText = 'width:100%;height:100%;object-fit:contain;padding:18px;box-sizing:border-box;';
+              imgBox.appendChild(img);
+            } else {
+              imgBox.appendChild(makeEl('div', '', 'CPU', 'font-size:24px;font-weight:900;opacity:.35;'));
+            }
+            hero.appendChild(imgBox);
+
+            var heroText = makeEl('div');
+            heroText.appendChild(makeEl('div', '', 'CPU + MOTHERBOARD BUNDLE', 'font-size:13px;text-transform:uppercase;letter-spacing:.16em;font-weight:900;color:rgba(17,17,17,.48);margin-bottom:10px;'));
+            heroText.appendChild(makeEl('div', '', (cpuTitle || 'CPU') + ' Bundle', 'font-size:36px;line-height:1.08;font-weight:950;margin-bottom:18px;letter-spacing:-0.04em;'));
+            var chips = makeEl('div', '', '', 'display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;');
+            chips.appendChild(makeEl('div', '', 'Starts at ' + (lowestItem && lowestItem.price ? lowestItem.price : '-'), 'border-radius:999px;background:#111;color:#fff;padding:10px 14px;font-size:15px;font-weight:850;line-height:1;'));
+            if (maxSavings) {
+              chips.appendChild(makeEl('div', '', 'Save up to ' + maxSavings, 'border-radius:999px;background:rgba(17,17,17,.08);color:#111;padding:10px 14px;font-size:15px;font-weight:850;line-height:1;'));
+            }
+            heroText.appendChild(chips);
+            heroText.appendChild(makeEl('div', '', 'Sort: ' + sortLabel + ' | Chipset: ' + chipsetLabel, 'font-size:15px;line-height:1.35;font-weight:700;color:rgba(17,17,17,.56);'));
+            hero.appendChild(heroText);
+            card.appendChild(hero);
+
+            var table = makeEl('div', '', '', 'background:#fff;border:1px solid rgba(17,17,17,.10);border-radius:30px;overflow:hidden;box-shadow:0 16px 48px rgba(17,17,17,.07);');
+            var tableHead = makeEl('div', '', '', 'display:grid;grid-template-columns:1fr 145px 190px;gap:18px;padding:16px 24px;background:#111;color:#fff;font-size:13px;text-transform:uppercase;letter-spacing:.13em;font-weight:900;');
+            tableHead.appendChild(makeEl('div', '', 'Motherboard'));
+            tableHead.appendChild(makeEl('div', '', 'Savings', 'text-align:center;'));
+            tableHead.appendChild(makeEl('div', '', 'Bundle price', 'text-align:right;'));
+            table.appendChild(tableHead);
+
+            items.forEach(function (item, idx) {
+              var isLowest = lowestItem && item === lowestItem;
+              var row = makeEl('div', '', '', [
+                'display:grid',
+                'grid-template-columns:1fr 145px 190px',
+                'gap:18px',
+                'align-items:center',
+                'padding:17px 24px',
+                'border-top:' + (idx === 0 ? '0' : '1px solid rgba(17,17,17,.055)'),
+                idx % 2 ? 'background:#fbfaf8' : 'background:#fff'
+              ].join(';'));
+
+              var info = makeEl('div', '', '', 'min-width:0;');
+              var titleLine = makeEl('div', '', '', 'display:flex;gap:10px;align-items:center;min-width:0;');
+              titleLine.appendChild(makeEl('span', '', item.title || 'Motherboard', 'font-size:22px;line-height:1.16;font-weight:600;letter-spacing:.01em;'));
+              if (isLowest) {
+                titleLine.appendChild(makeEl('span', '', 'Lowest price', 'flex:0 0 auto;border-radius:999px;background:#111;color:#fff;padding:5px 9px;font-size:10px;text-transform:uppercase;letter-spacing:.11em;font-weight:900;'));
+              }
+              info.appendChild(titleLine);
+
+              var metaParts = [];
+              if (item.chipset) metaParts.push(item.chipset);
+              if (metaParts.length) {
+                info.appendChild(makeEl('div', '', metaParts.join(' | '), 'margin-top:5px;font-size:13px;font-weight:650;color:rgba(17,17,17,.42);'));
+              }
+              row.appendChild(info);
+
+              var saveCell = makeEl('div', '', '', 'display:flex;justify-content:center;');
+              if (item.savings && item.savings !== '₱0.00') {
+                saveCell.appendChild(makeEl('span', '', 'Save ' + item.savings, 'display:inline-flex;align-items:center;justify-content:center;border-radius:999px;background:rgba(17,17,17,.07);padding:8px 10px;font-size:14px;line-height:1;font-weight:850;color:rgba(17,17,17,.66);font-variant-numeric:tabular-nums;white-space:nowrap;'));
+              } else {
+                saveCell.appendChild(makeEl('span', '', '-', 'font-size:15px;font-weight:800;color:rgba(17,17,17,.34);'));
+              }
+              row.appendChild(saveCell);
+              row.appendChild(makeEl('div', '', item.price || '-', 'font-size:28px;line-height:1;font-weight:950;text-align:right;font-variant-numeric:tabular-nums;letter-spacing:-0.03em;'));
+              table.appendChild(row);
+            });
+
+            card.appendChild(table);
+
+            var footer = makeEl('div', '', '', 'position:relative;display:grid;grid-template-columns:1fr auto;gap:24px;align-items:end;margin-top:24px;color:rgba(17,17,17,.62);font-size:15px;font-weight:700;line-height:1.35;');
+            footer.appendChild(makeEl('div', '', 'Bundle prices shown are based on the current page display.'));
+            footer.appendChild(makeEl('div', '', 'Binondo, Manila | uncappedpc.com', 'text-align:right;font-weight:900;color:#111;letter-spacing:.01em;'));
+            card.appendChild(footer);
+            appendBundleSocials(card);
+
+            document.body.appendChild(wrap);
+            return wrap;
+          }
+
+          function downloadCanvas(canvas, filename) {
+            function clickDownload(url) {
+              var link = document.createElement('a');
+              link.href = url;
+              link.download = filename;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }
+
+            if (canvas.toBlob) {
+              return new Promise(function (resolve) {
+                canvas.toBlob(function (blob) {
+                  if (!blob) {
+                    clickDownload(canvas.toDataURL('image/png'));
+                    resolve();
+                    return;
+                  }
+
+                  var url = URL.createObjectURL(blob);
+                  clickDownload(url);
+                  setTimeout(function () {
+                    URL.revokeObjectURL(url);
+                  }, 1000);
+                  resolve();
+                }, 'image/png');
+              });
+            }
+
+            clickDownload(canvas.toDataURL('image/png'));
+            return Promise.resolve();
+          }
+
+          function generateVisibleBundleScreenshot() {
+            var items = getVisibleBundleItems();
+            if (!items.length) {
+              setDevStatus('No visible bundles to screenshot. Clear filters or pick another page.', true);
+              return;
+            }
+
+            if (devShotBtn) {
+              devShotBtn.disabled = true;
+              devShotBtn.textContent = 'Generating...';
+            }
+            var startedAt = Date.now();
+            setDevStatus('Preparing screenshot...', false);
+
+            loadHtml2Canvas()
+              .then(function (html2canvas) {
+                var node = buildBundleScreenshotNode(items);
+                var card = node.firstChild;
+                var width = 1080;
+                var height = Math.ceil(card.getBoundingClientRect().height);
+
+                setDevStatus('Rendering screenshot...', false);
+
+                return html2canvas(card, {
+                  backgroundColor: '#f4f0e9',
+                  scale: BUNDLE_SCREENSHOT_SCALE,
+                  useCORS: true,
+                  imageTimeout: BUNDLE_SCREENSHOT_IMAGE_TIMEOUT,
+                  logging: false,
+                  windowWidth: width,
+                  windowHeight: height,
+                  width: width,
+                  height: height
+                }).then(function (canvas) {
+                  setDevStatus('Downloading screenshot...', false);
+                  return downloadCanvas(canvas, 'uncapped-bundles-' + safeFilePart(bundlePageHandle) + '-' + bundleScreenshotFileDate() + '.png')
+                    .then(function () {
+                      document.body.removeChild(node);
+                      var elapsed = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+                      setDevStatus('Screenshot downloaded for ' + items.length + ' visible bundle option' + (items.length === 1 ? '' : 's') + ' in ' + elapsed + 's.', false);
+                    });
+                }).catch(function (err) {
+                  if (node && node.parentNode) node.parentNode.removeChild(node);
+                  throw err;
+                });
+              })
+              .catch(function () {
+                setDevStatus('Could not generate screenshot. Confirm html2canvas.min.js is uploaded to theme assets.', true);
+              })
+              .finally(function () {
+                if (devShotBtn) {
+                  devShotBtn.disabled = false;
+                  devShotBtn.textContent = 'Download visible bundle price list';
+                }
+              });
+          }
+
+          function buildFilterOptions() {
+            if (!brandSelect || !chipsetSelect) return;
+
+            var rows = getRows();
+
+            var brandMap = {};
+            var chipsetMap = {};
+
+            rows.forEach(function (row) {
+              var bk = (row.getAttribute('data-brand-key') || '').toLowerCase();
+              var bn = row.getAttribute('data-brand-name') || '';
+              if (bk && bn && !brandMap[bk]) brandMap[bk] = bn;
+
+              var ck = (row.getAttribute('data-chipset-key') || '').toLowerCase();
+              var cn = row.getAttribute('data-chipset-name') || '';
+              if (ck && cn && !chipsetMap[ck]) chipsetMap[ck] = cn;
+            });
+
+            var brandKeys = Object.keys(brandMap).sort(function (a, b) {
+              return brandMap[a].localeCompare(brandMap[b]);
+            });
+
+            var chipsetKeys = Object.keys(chipsetMap).sort(function (a, b) {
+              return chipsetMap[a].localeCompare(chipsetMap[b]);
+            });
+
+            brandSelect.innerHTML = '<option value="">All</option>';
+            brandKeys.forEach(function (k) {
+              var opt = document.createElement('option');
+              opt.value = k;
+              opt.textContent = brandMap[k];
+              brandSelect.appendChild(opt);
+            });
+
+            chipsetSelect.innerHTML = '<option value="">All</option>';
+            chipsetKeys.forEach(function (k) {
+              var opt = document.createElement('option');
+              opt.value = k;
+              opt.textContent = chipsetMap[k];
+              chipsetSelect.appendChild(opt);
+            });
+
+            if (brandWrap) {
+              brandWrap.style.display = brandKeys.length > 1 ? '' : 'none';
+            }
+
+            if (chipsetWrap) {
+              chipsetWrap.style.display = chipsetKeys.length > 0 ? '' : 'none';
+            }
+          }
+
+          function applySortAndFilters() {
+            var rows = getRows();
+            if (!rows.length || !tbody) return;
+
+            var sortMode = (sortSelect && sortSelect.value) ? sortSelect.value : (root.getAttribute('data-default-sort') || 'price_asc');
+            sortMode = (sortMode || 'price_asc').toLowerCase();
+
+            var brandMode = (brandSelect && brandSelect.value) ? brandSelect.value.toLowerCase() : '';
+            var chipsetMode = (chipsetSelect && chipsetSelect.value) ? chipsetSelect.value.toLowerCase() : '';
+
+            var visible = [];
+            var hidden = [];
+
+            rows.forEach(function (row, idx) {
+              var bk = (row.getAttribute('data-brand-key') || '').toLowerCase();
+              var ck = (row.getAttribute('data-chipset-key') || '').toLowerCase();
+
+              var okBrand = !brandMode || (bk === brandMode);
+              var okChip = !chipsetMode || (ck === chipsetMode);
+
+              row.__origIndex = row.__origIndex || idx;
+
+              if (okBrand && okChip) {
+                row.style.display = '';
+                visible.push(row);
+              } else {
+                row.style.display = 'none';
+                hidden.push(row);
+              }
+            });
+
+            function numAttr(el, name, fallback) {
+              var v = parseFloat(el.getAttribute(name) || '');
+              return isNaN(v) ? (fallback || 0) : v;
+            }
+
+            visible.sort(function (a, b) {
+              if (sortMode === 'price_asc' || sortMode === 'price_desc') {
+                var pa = numAttr(a, 'data-bundle-price-cents', 0);
+                var pb = numAttr(b, 'data-bundle-price-cents', 0);
+                if (pa !== pb) {
+                  return sortMode === 'price_asc' ? (pa - pb) : (pb - pa);
+                }
+              } else {
+                var sa = numAttr(a, 'data-sort-order', 999999);
+                var sb = numAttr(b, 'data-sort-order', 999999);
+                if (sa !== sb) return sa - sb;
+              }
+              return (a.__origIndex || 0) - (b.__origIndex || 0);
+            });
+
+            visible.forEach(function (row) { tbody.appendChild(row); });
+            hidden.forEach(function (row) { tbody.appendChild(row); });
+
+            var picked = getSelectedRadio();
+            if (picked) {
+              var pickedRow = picked.closest('[data-ucp-bundle-row]');
+              if (pickedRow && pickedRow.style.display === 'none') {
+                var next = firstVisibleRadio();
+                if (next) {
+                  next.checked = true;
+                  applySelected(next);
+                } else {
+                  applySelected(null);
+                }
+              }
+            } else {
+              var first = firstVisibleRadio();
+              if (first) {
+                first.checked = true;
+                applySelected(first);
+              }
+            }
+          }
+
+          root.addEventListener('change', function (e) {
+            var t = e.target;
+            if (!t) return;
+
+            if (t.matches('input[name="ucp_bundle_pick"]')) {
+              applySelected(t);
+              return;
+            }
+
+            if (t.matches('[data-ucp-sort]') || t.matches('[data-ucp-brand]') || t.matches('[data-ucp-chipset]')) {
+              applySortAndFilters();
+              return;
+            }
+          });
+
+          if (addBtn) {
+            addBtn.addEventListener('click', function (e) {
+              e.preventDefault();
+              addSelectedToCart();
+            });
+          }
+          if (builderBtn) {
+            builderBtn.addEventListener('click', function (e) {
+              e.preventDefault();
+              openSelectedInBuilder();
+            });
+          }
+          if (devShotBtn) {
+            devShotBtn.addEventListener('click', function (e) {
+              e.preventDefault();
+              generateVisibleBundleScreenshot();
+            });
+          }
+
+          buildFilterOptions();
+
+          var radios = getRadios();
+          if (radios.length) {
+            if (!getSelectedRadio()) {
+              radios[0].checked = true;
+            }
+            applySelected(getSelectedRadio());
+          }
+
+          applySortAndFilters();
+        })();
+      </script>
+
+    {%- endif -%}
+
+  {%- endif -%}
+
+{%- endif -%}
+
+<script src="{{ 'ucp-source-tracker.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "UCP Bundle Page",
+  "settings": [
+    {
+      "type": "text",
+      "id": "bundle_motherboards_collection",
+      "label": "Bundle motherboards collection handle",
+      "default": "bundle-motherboard"
+    },
+    {
+      "type": "range",
+      "id": "max_motherboards",
+      "label": "Max motherboards to scan from collection",
+      "min": 2,
+      "max": 200,
+      "step": 2,
+      "default": 200
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_add_to_cart_cta",
+      "label": "Enable Add CPU + motherboard to cart CTA",
+      "default": false
+    },
+
+    { "type": "header", "content": "Sorting and filters" },
+    {
+      "type": "checkbox",
+      "id": "enable_filters",
+      "label": "Enable sort and filters UI",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "default_sort",
+      "label": "Default sort",
+      "options": [
+        { "value": "sort_order", "label": "Rule order" },
+        { "value": "price_asc", "label": "Lowest price" },
+        { "value": "price_desc", "label": "Highest price" }
+      ],
+      "default": "price_asc"
+    },
+    {
+      "type": "url",
+      "id": "pc_builder_page_url",
+      "label": "PC Builder page URL"
+    },
+
+    { "type": "header", "content": "Layout width and spacing" },
+    {
+      "type": "select",
+      "id": "width",
+      "label": "Width",
+      "options": [
+        { "value": "page", "label": "Page" },
+        { "value": "full", "label": "Full width" }
+      ],
+      "default": "page"
+    },
+    {
+      "type": "range",
+      "id": "max_width",
+      "label": "Max width (when Page is selected)",
+      "min": 900,
+      "max": 1600,
+      "step": 20,
+      "unit": "px",
+      "default": 1200
+    },
+    {
+      "type": "range",
+      "id": "pad_desktop",
+      "label": "Side padding (desktop)",
+      "min": 0,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "pad_mobile",
+      "label": "Side padding (mobile)",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "grid_gap",
+      "label": "Gap between image and options",
+      "min": 8,
+      "max": 40,
+      "step": 2,
+      "unit": "px",
+      "default": 18
+    },
+    {
+      "type": "range",
+      "id": "left_percent",
+      "label": "Left column width (image emphasis)",
+      "min": 50,
+      "max": 75,
+      "step": 1,
+      "unit": "%",
+      "default": 60
+    },
+
+    { "type": "header", "content": "Image controls" },
+    {
+      "type": "range",
+      "id": "hero_min_h_desktop",
+      "label": "Motherboard image area height (desktop)",
+      "min": 260,
+      "max": 700,
+      "step": 10,
+      "unit": "px",
+      "default": 420
+    },
+    {
+      "type": "range",
+      "id": "hero_min_h_mobile",
+      "label": "Motherboard image area height (mobile)",
+      "min": 200,
+      "max": 520,
+      "step": 10,
+      "unit": "px",
+      "default": 300
+    },
+    {
+      "type": "range",
+      "id": "frame_padding",
+      "label": "Image frame padding",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "select",
+      "id": "mobo_fit",
+      "label": "Motherboard image fit",
+      "options": [
+        { "value": "contain", "label": "Contain (no crop)" },
+        { "value": "cover", "label": "Cover (crop to fill)" }
+      ],
+      "default": "contain"
+    },
+    {
+      "type": "range",
+      "id": "mobo_zoom",
+      "label": "Motherboard zoom",
+      "min": 80,
+      "max": 130,
+      "step": 1,
+      "unit": "%",
+      "default": 100
+    },
+    {
+      "type": "range",
+      "id": "cpu_thumb_size",
+      "label": "CPU thumbnail size",
+      "min": 32,
+      "max": 90,
+      "step": 2,
+      "unit": "px",
+      "default": 54
+    },
+
+    {
+      "type": "checkbox",
+      "id": "debug",
+      "label": "Debug mode",
+      "default": false
+    }
+  ],
+  "presets": [
+    { "name": "UCP Bundle Page" }
+  ]
+}
+{% endschema %}

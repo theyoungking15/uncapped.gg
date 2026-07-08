@@ -1,0 +1,48 @@
+{%- layout none -%}
+
+{%- assign mo = shop.metaobjects['pc_builder_addon_discount'] -%}
+
+{%- if mo and mo.values -%}
+  {%- paginate mo.values by 250 -%}
+  {
+    "addon_discounts": [
+      {%- assign first = true -%}
+      {%- for p in mo.values -%}
+        {%- assign is_active = p.is_active.value -%}
+        {%- if is_active -%}
+          {%- assign addon_handle = '' -%}
+          {%- if p.system and p.system.handle -%}
+            {%- assign addon_handle = p.system.handle | strip | downcase -%}
+          {%- endif -%}
+
+          {%- unless first -%},{%- endunless -%}
+          {
+            "handle": {{ addon_handle | json }},
+            "promo_label": {{ p.promo_label.value | default: "" | json }},
+            "is_active": {{ p.is_active.value | default: false | json }},
+            "unlock_on_bundle_discount": {{ p.unlock_on_bundle_discount.value | default: false | json }},
+            "unlock_on_any_primary_promo": {{ p.unlock_on_any_primary_promo.value | default: false | json }},
+            "qualifying_promo_handles": {%- if p.qualifying_promo_handles.value != blank -%}{{ p.qualifying_promo_handles.value | json }}{%- else -%}[]{%- endif -%},
+            "bulk_unlock_enabled": {{ p.bulk_unlock_enabled.value | default: false | json }},
+            "bulk_qualifying_tabs": {%- if p.bulk_qualifying_tabs.value != blank -%}{{ p.bulk_qualifying_tabs.value | json }}{%- else -%}[]{%- endif -%},
+            "bulk_min_qualifying_tabs": {{ p.bulk_min_qualifying_tabs.value | default: 0 | json }},
+            "stack_with_bundle_discount": {{ p.stack_with_bundle_discount.value | default: true | json }},
+            "stack_with_primary_promo": {{ p.stack_with_primary_promo.value | default: true | json }},
+            "discounted_targets": {%- if p.discounted_targets.value != blank -%}{{ p.discounted_targets.value | json }}{%- else -%}[]{%- endif -%},
+            "badge_label": {{ p.badge_label.value | default: "" | json }},
+            "description": {{ p.description.value | default: "" | json }},
+            "starts_at": {{ p.starts_at.value | default: "" | json }},
+            "ends_at": {{ p.ends_at.value | default: "" | json }},
+            "priority": {{ p.priority.value | default: 0 | json }},
+            "internal_note": {{ p.internal_note.value | default: "" | json }}
+          }
+          {%- assign first = false -%}
+        {%- endif -%}
+      {%- endfor -%}
+    ],
+    "next_page": {%- if paginate.current_page < paginate.pages -%}{{ paginate.current_page | plus: 1 }}{%- else -%}null{%- endif -%}
+  }
+  {%- endpaginate -%}
+{%- else -%}
+  {"addon_discounts":[],"next_page":null}
+{%- endif -%}

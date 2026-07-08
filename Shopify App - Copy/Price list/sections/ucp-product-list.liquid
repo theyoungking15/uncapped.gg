@@ -1,0 +1,1961 @@
+{% liquid
+  comment
+    Basic product collection setup.
+    - max_items: how many products to show when "show all" is false.
+    - show_all: when true, we show full collection (within Shopify limits).
+    - collection_products: the products we will render.
+  endcomment
+  assign max_items = section.settings.max_products
+  assign show_all = section.settings.show_all_products_from_collection
+  assign collection_products = null
+  assign product_limit = max_items
+
+  assign brand_mo = shop.metaobjects.brand['uncapped']
+  assign brand_logo_media = blank
+  if brand_mo != blank
+    if brand_mo.logo != blank
+      assign brand_logo_media = brand_mo.logo.value
+    elsif brand_mo.image != blank
+      assign brand_logo_media = brand_mo.image.value
+    elsif brand_mo.brand_logo != blank
+      assign brand_logo_media = brand_mo.brand_logo.value
+    endif
+  endif
+
+  capture brand_logo_url
+    if brand_logo_media != blank
+      echo brand_logo_media | image_url: width: 360
+    elsif shop.brand.logo != blank
+      echo shop.brand.logo | image_url: width: 360
+    elsif settings.logo != blank
+      echo settings.logo | image_url: width: 360
+    endif
+  endcapture
+
+  if section.settings.collection != blank and shop.products_count != 0
+    assign collection_products = section.settings.collection.products
+    assign total_in_collection = collection_products.size
+
+    if show_all
+      assign product_limit = total_in_collection
+    endif
+  endif
+
+  comment
+    Build unique BRAND handle list from the section collection.
+    We only care about the handle for data attributes and filter values.
+  endcomment
+  assign brand_handles_string = ''
+
+  if collection_products != null
+    for product in collection_products limit: product_limit
+      assign brand_meta = product.metafields.relations.brand.value
+      if brand_meta != blank
+        assign b_handle = brand_meta.brand_handle | default: brand_meta.name | handleize
+      else
+        assign b_handle = product.vendor | handleize
+      endif
+
+      unless brand_handles_string contains b_handle
+        assign brand_handles_string = brand_handles_string | append: b_handle | append: ','
+      endunless
+    endfor
+  endif
+
+  assign brand_handles = brand_handles_string | split: ',' | uniq
+
+  comment
+    Extra filter value collectors per collection type.
+    We build unique handle lists that become checkbox chips.
+  endcomment
+  assign socket_values = ''
+  assign form_factor_values = ''
+  assign gpu_handle_values = ''
+  assign mem_tech_values = ''
+  assign cooler_type_values = ''
+  assign watts_values = ''
+  assign cert_values = ''
+  assign dev_interface_values = ''
+  assign pcie_gen_values = ''
+
+  comment
+    Availability flags for the availability filter.
+  endcomment
+  assign has_in_stock = false
+  assign has_out_of_stock = false
+
+  if collection_products != null
+    for product in collection_products limit: product_limit
+      if product.available
+        assign has_in_stock = true
+      else
+        assign has_out_of_stock = true
+      endif
+
+      if section.settings.collection_type == 'cpu' or section.settings.collection_type == 'motherboard'
+        assign socket_meta = product.metafields.shopify['processor-socket']
+        if socket_meta and socket_meta.value != blank
+          for s in socket_meta.value
+            assign socket_label = s.label | default: s.value | default: s.name | default: s
+            assign s_handle = socket_label | handleize
+            unless socket_values contains s_handle
+              assign socket_values = socket_values | append: s_handle | append: ','
+            endunless
+          endfor
+        endif
+      endif
+
+      if section.settings.collection_type == 'motherboard'
+        assign ff_meta = product.metafields.shopify['motherboard-form-factor']
+        if ff_meta and ff_meta.value != blank
+          for ff in ff_meta.value
+            assign ff_name = ff.label | default: ff.name | default: ff.title | default: ff.value | default: ff
+            assign ff_handle = ff_name | handleize
+            unless form_factor_values contains ff_handle
+              assign form_factor_values = form_factor_values | append: ff_handle | append: ','
+            endunless
+          endfor
+        endif
+      endif
+
+      if section.settings.collection_type == 'gpu'
+        assign g_handle = product.metafields.custom.bench_gpu_handle | default: ''
+        if g_handle != ''
+          assign g_handle_norm = g_handle | handleize
+          unless gpu_handle_values contains g_handle_norm
+            assign gpu_handle_values = gpu_handle_values | append: g_handle_norm | append: ','
+          endunless
+        endif
+      endif
+
+      if section.settings.collection_type == 'ram'
+        assign mem_meta = product.metafields.shopify['memory-technology']
+        if mem_meta and mem_meta.value != blank
+          for mt in mem_meta.value
+            assign mt_name = mt.label | default: mt.name | default: mt.title | default: mt.value | default: mt
+            assign mt_handle = mt_name | handleize
+            unless mem_tech_values contains mt_handle
+              assign mem_tech_values = mem_tech_values | append: mt_handle | append: ','
+            endunless
+          endfor
+        endif
+      endif
+
+      if section.settings.collection_type == 'cooler'
+        assign c_type = product.metafields.custom.cpu_cooler_type | default: product.metafields.custom.cpu_cooler_types | default: ''
+        if c_type != ''
+          assign c_handle = c_type | handleize
+          unless cooler_type_values contains c_handle
+            assign cooler_type_values = cooler_type_values | append: c_handle | append: ','
+          endunless
+        endif
+      endif
+
+      if section.settings.collection_type == 'psu'
+        assign w_meta = product.metafields.custom.watts | default: ''
+        if w_meta != ''
+          assign w_handle = w_meta | handleize
+          unless watts_values contains w_handle
+            assign watts_values = watts_values | append: w_handle | append: ','
+          endunless
+        endif
+
+        assign cert_meta = product.metafields.custom.certification | default: ''
+        if cert_meta != ''
+          assign cert_handle = cert_meta | handleize
+          unless cert_values contains cert_handle
+            assign cert_values = cert_values | append: cert_handle | append: ','
+          endunless
+        endif
+      endif
+
+      if section.settings.collection_type == 'ssd'
+        assign dev_meta = product.metafields.shopify['device-interface']
+        if dev_meta and dev_meta.value != blank
+          for di in dev_meta.value
+            assign di_name = di.label | default: di.name | default: di.title | default: di.value | default: di
+            assign di_handle = di_name | handleize
+            unless dev_interface_values contains di_handle
+              assign dev_interface_values = dev_interface_values | append: di_handle | append: ','
+            endunless
+          endfor
+        endif
+
+        assign pg_meta = product.metafields.custom.pcie_generation | default: ''
+        if pg_meta != ''
+          assign pg_handle = pg_meta | handleize
+          unless pcie_gen_values contains pg_handle
+            assign pcie_gen_values = pcie_gen_values | append: pg_handle | append: ','
+          endunless
+        endif
+      endif
+    endfor
+  endif
+
+  assign socket_handles        = socket_values        | split: ',' | uniq
+  assign form_factor_handles   = form_factor_values   | split: ',' | uniq
+  assign gpu_handle_handles    = gpu_handle_values    | split: ',' | uniq
+  assign mem_tech_handles      = mem_tech_values      | split: ',' | uniq
+  assign cooler_type_handles   = cooler_type_values   | split: ',' | uniq
+  assign watts_handles         = watts_values         | split: ',' | uniq
+  assign cert_handles          = cert_values          | split: ',' | uniq
+  assign dev_interface_handles = dev_interface_values | split: ',' | uniq
+  assign pcie_gen_handles      = pcie_gen_values      | split: ',' | uniq
+  assign nav_label = ''
+  if section.settings.collection != blank
+    assign nav_label = section.settings.collection.title | strip
+  endif
+
+  if nav_label == blank
+    case section.settings.collection_type
+      when 'cpu'
+        assign nav_label = 'CPU'
+      when 'motherboard'
+        assign nav_label = 'Motherboard'
+      when 'gpu'
+        assign nav_label = 'GPU'
+      when 'ram'
+        assign nav_label = 'RAM'
+      when 'cooler'
+        assign nav_label = 'CPU Cooler'
+      when 'psu'
+        assign nav_label = 'PSU'
+      when 'ssd'
+        assign nav_label = 'SSD'
+      else
+        assign nav_label = 'Products'
+    endcase
+  endif
+
+  assign nav_image = blank
+  if section.settings.collection != blank and section.settings.collection.image != blank
+    assign nav_image = section.settings.collection.image
+  elsif collection_products != null and collection_products.first != blank and collection_products.first.featured_image != blank
+    assign nav_image = collection_products.first.featured_image
+  endif
+
+  assign nav_image_url = ''
+  assign export_image_url = ''
+  if nav_image != blank
+    assign nav_image_url = nav_image | image_url: width: 280
+    assign export_image_url = nav_image | image_url: width: 700
+  endif
+%}
+
+<div class="section-background color-{{ section.settings.color_scheme }}"></div>
+<div
+  id="product-list-{{ section.id }}"
+  data-testid="product-list"
+  data-upl-price-list-nav-target="true"
+  data-upl-price-list-nav-label="{{ nav_label | escape }}"
+  data-upl-price-list-nav-image="{{ nav_image_url | escape }}"
+  data-upl-price-list-nav-type="{{ section.settings.collection_type | escape }}"
+  data-upl-availability-sort-priority="{{ section.settings.availability_sort_priority | default: 'price_only' | escape }}"
+  data-upl-price-list-export-title="{{ nav_label | escape }}"
+  data-upl-price-list-export-image="{{ export_image_url | escape }}"
+  data-screenshot-brand-logo="{{ brand_logo_url | strip | escape }}"
+  data-ucp-source-page-type="price_list"
+  data-ucp-source-campaign="{{ page.handle | default: 'price-list' | escape }}"
+  data-ucp-source-content="{{ section.settings.collection_type | default: section.settings.collection.handle | default: section.id | escape }}"
+  class="
+    section
+    section--{{ section.settings.section_width }}
+    color-{{ section.settings.color_scheme }}
+    section-resource-list
+    spacing-style
+    gap-style
+  "
+  style="
+    {% render 'spacing-style', settings: section.settings %}
+    {% render 'gap-style', value: section.settings.gap %}
+  "
+>
+  {%- if section.settings.show_filters -%}
+    <div class="upl-product-filters">
+      <div class="upl-product-filters__row">
+        {%- comment -%}
+          Sort group. Client side sort by price.
+        {%- endcomment -%}
+        <div class="upl-product-filters__group upl-product-filters__group--sort">
+          <span class="upl-product-filters__label">Sort</span>
+          <div class="upl-product-filters__controls">
+            <button
+              type="button"
+              class="upl-product-filters__sort-btn is-active"
+              data-sort="lowest"
+            >
+              Lowest
+            </button>
+            <button
+              type="button"
+              class="upl-product-filters__sort-btn"
+              data-sort="highest"
+            >
+              Highest
+            </button>
+          </div>
+        </div>
+
+                {%- comment -%}
+          Availability filter group.
+          Uses product.available and data-availability attribute.
+        {%- endcomment -%}
+        {%- if has_in_stock or has_out_of_stock -%}
+          <div class="upl-product-filters__group upl-product-filters__group--availability">
+            <span class="upl-product-filters__label">Availability</span>
+            <div class="upl-product-filters__controls upl-product-filters__controls--wrap">
+              <label class="upl-product-filters__checkbox">
+                <input
+                  type="checkbox"
+                  data-filter-key="availability"
+                  value="in-stock"
+                  {% unless section.settings.availability_in_stock_checked == false %}checked{% endunless %}
+                >
+                <span>In stock</span>
+              </label>
+              <label class="upl-product-filters__checkbox">
+                <input
+                  type="checkbox"
+                  data-filter-key="availability"
+                  value="out-of-stock"
+                  {% if section.settings.availability_out_of_stock_checked %}checked{% endif %}
+                >
+                <span>Out of stock</span>
+              </label>
+            </div>
+          </div>
+        {%- endif -%}
+
+        {%- comment -%}
+          Brand filter group.
+        {%- endcomment -%}
+        {%- if brand_handles.size > 0 -%}
+          <div class="upl-product-filters__group upl-product-filters__group--select">
+            <span class="upl-product-filters__label">Brand</span>
+            <div class="upl-product-filters__controls">
+              <select class="upl-product-filters__select" data-filter-key="brand">
+                <option value="">All</option>
+                {%- for b_handle in brand_handles -%}
+                  {%- unless b_handle == '' -%}
+                    {%- assign brand_label = b_handle | replace: '-', ' ' | upcase -%}
+                    <option value="{{ b_handle }}">{{ brand_label }}</option>
+                  {%- endunless -%}
+                {%- endfor -%}
+              </select>
+            </div>
+          </div>
+        {%- endif -%}
+
+        {%- comment -%}
+          CPU and motherboard. Processor socket filter.
+        {%- endcomment -%}
+        {%- if section.settings.collection_type == 'cpu' or section.settings.collection_type == 'motherboard' -%}
+          {%- if socket_handles.size > 0 -%}
+            <div class="upl-product-filters__group upl-product-filters__group--select">
+              <span class="upl-product-filters__label">Processor socket</span>
+              <div class="upl-product-filters__controls">
+                <select class="upl-product-filters__select" data-filter-key="socket">
+                  <option value="">All</option>
+                  {%- for s_handle in socket_handles -%}
+                    {%- unless s_handle == '' -%}
+                      {%- assign socket_label = s_handle | replace: '-', ' ' | upcase -%}
+                      <option value="{{ s_handle }}">{{ socket_label }}</option>
+                    {%- endunless -%}
+                  {%- endfor -%}
+                </select>
+              </div>
+            </div>
+          {%- endif -%}
+        {%- endif -%}
+
+        {%- comment -%}
+          Motherboard. Form factor filter.
+        {%- endcomment -%}
+        {%- if section.settings.collection_type == 'motherboard' and form_factor_handles.size > 0 -%}
+          <div class="upl-product-filters__group upl-product-filters__group--select">
+            <span class="upl-product-filters__label">Form factor</span>
+            <div class="upl-product-filters__controls">
+              <select class="upl-product-filters__select" data-filter-key="form-factor">
+                <option value="">All</option>
+                {%- for ff_handle in form_factor_handles -%}
+                  {%- unless ff_handle == '' -%}
+                    {%- assign ff_label = ff_handle | replace: '-', ' ' | upcase -%}
+                    <option value="{{ ff_handle }}">{{ ff_label }}</option>
+                  {%- endunless -%}
+                {%- endfor -%}
+              </select>
+            </div>
+          </div>
+        {%- endif -%}
+
+        {%- comment -%}
+          GPU model filter.
+        {%- endcomment -%}
+        {%- if section.settings.collection_type == 'gpu' and gpu_handle_handles.size > 0 -%}
+          <div class="upl-product-filters__group upl-product-filters__group--select">
+            <span class="upl-product-filters__label">GPU model</span>
+            <div class="upl-product-filters__controls">
+              <select class="upl-product-filters__select" data-filter-key="gpu-handle">
+                <option value="">All</option>
+                {%- for g_handle in gpu_handle_handles -%}
+                  {%- unless g_handle == '' -%}
+                    {%- assign g_label = g_handle | replace: '-', ' ' | upcase -%}
+                    <option value="{{ g_handle }}">{{ g_label }}</option>
+                  {%- endunless -%}
+                {%- endfor -%}
+              </select>
+            </div>
+          </div>
+        {%- endif -%}
+
+        {%- comment -%}
+          RAM. Memory technology filter.
+        {%- endcomment -%}
+        {%- if section.settings.collection_type == 'ram' and mem_tech_handles.size > 0 -%}
+          <div class="upl-product-filters__group upl-product-filters__group--select">
+            <span class="upl-product-filters__label">Memory technology</span>
+            <div class="upl-product-filters__controls">
+              <select class="upl-product-filters__select" data-filter-key="memory-tech">
+                <option value="">All</option>
+                {%- for mt_handle in mem_tech_handles -%}
+                  {%- unless mt_handle == '' -%}
+                    {%- assign mt_label = mt_handle | replace: '-', ' ' | upcase -%}
+                    <option value="{{ mt_handle }}">{{ mt_label }}</option>
+                  {%- endunless -%}
+                {%- endfor -%}
+              </select>
+            </div>
+          </div>
+        {%- endif -%}
+
+        {%- comment -%}
+          CPU cooler. Cooler type filter.
+        {%- endcomment -%}
+        {%- if section.settings.collection_type == 'cooler' and cooler_type_handles.size > 0 -%}
+          <div class="upl-product-filters__group upl-product-filters__group--select">
+            <span class="upl-product-filters__label">Cooler type</span>
+            <div class="upl-product-filters__controls">
+              <select class="upl-product-filters__select" data-filter-key="cooler-type">
+                <option value="">All</option>
+                {%- for ct_handle in cooler_type_handles -%}
+                  {%- unless ct_handle == '' -%}
+                    {%- if ct_handle == 'aio-cooler' -%}
+                      {%- assign ct_label = 'AIO Cooler' -%}
+                    {%- elsif ct_handle == 'air-cooler' -%}
+                      {%- assign ct_label = 'Air Cooler' -%}
+                    {%- else -%}
+                      {%- assign ct_label = ct_handle | replace: '-', ' ' | capitalize -%}
+                    {%- endif -%}
+                    <option value="{{ ct_handle }}">{{ ct_label }}</option>
+                  {%- endunless -%}
+                {%- endfor -%}
+              </select>
+            </div>
+          </div>
+        {%- endif -%}
+
+        {%- comment -%}
+          PSU. Watts and certification filters.
+        {%- endcomment -%}
+        {%- if section.settings.collection_type == 'psu' -%}
+          {%- if watts_handles.size > 0 -%}
+            <div class="upl-product-filters__group upl-product-filters__group--select">
+              <span class="upl-product-filters__label">Watts</span>
+              <div class="upl-product-filters__controls">
+                <select class="upl-product-filters__select" data-filter-key="watts">
+                  <option value="">All</option>
+                  {%- for w_handle in watts_handles -%}
+                    {%- unless w_handle == '' -%}
+                      {%- assign w_label = w_handle | upcase -%}
+                      <option value="{{ w_handle }}">{{ w_label }}</option>
+                    {%- endunless -%}
+                  {%- endfor -%}
+                </select>
+              </div>
+            </div>
+          {%- endif -%}
+
+          {%- if cert_handles.size > 0 -%}
+            <div class="upl-product-filters__group upl-product-filters__group--select">
+              <span class="upl-product-filters__label">Certification</span>
+              <div class="upl-product-filters__controls">
+                <select class="upl-product-filters__select" data-filter-key="cert">
+                  <option value="">All</option>
+                  {%- for c_handle in cert_handles -%}
+                    {%- unless c_handle == '' -%}
+                      {%- assign c_label = c_handle | replace: '-', ' ' | upcase -%}
+                      <option value="{{ c_handle }}">{{ c_label }}</option>
+                    {%- endunless -%}
+                  {%- endfor -%}
+                </select>
+              </div>
+            </div>
+          {%- endif -%}
+        {%- endif -%}
+
+        {%- comment -%}
+          SSD. Device interface and PCIe generation filters.
+        {%- endcomment -%}
+        {%- if section.settings.collection_type == 'ssd' -%}
+          {%- if dev_interface_handles.size > 0 -%}
+            <div class="upl-product-filters__group upl-product-filters__group--select">
+              <span class="upl-product-filters__label">Device interface</span>
+              <div class="upl-product-filters__controls">
+                <select class="upl-product-filters__select" data-filter-key="device-interface">
+                  <option value="">All</option>
+                  {%- for di_handle in dev_interface_handles -%}
+                    {%- unless di_handle == '' -%}
+                      {%- assign di_label = di_handle | replace: '-', ' ' | upcase -%}
+                      <option value="{{ di_handle }}">{{ di_label }}</option>
+                    {%- endunless -%}
+                  {%- endfor -%}
+                </select>
+              </div>
+            </div>
+          {%- endif -%}
+
+          {%- if pcie_gen_handles.size > 0 -%}
+            <div class="upl-product-filters__group upl-product-filters__group--select">
+              <span class="upl-product-filters__label">PCIe generation</span>
+              <div class="upl-product-filters__controls">
+                <select class="upl-product-filters__select" data-filter-key="pcie-generation">
+                  <option value="">All</option>
+                  {%- for pg_handle in pcie_gen_handles -%}
+                    {%- unless pg_handle == '' -%}
+                      {%- assign pg_label = pg_handle | replace: '-', ' ' | upcase -%}
+                      <option value="{{ pg_handle }}">{{ pg_label }}</option>
+                    {%- endunless -%}
+                  {%- endfor -%}
+                </select>
+              </div>
+            </div>
+          {%- endif -%}
+        {%- endif -%}
+      </div>
+    </div>
+  {%- endif -%}
+
+  <div class="upl-price-list-dev" data-upl-price-list-dev hidden>
+    <div class="upl-price-list-dev__eyebrow">Dev tools</div>
+    <div class="upl-price-list-dev__title">Price list screenshot</div>
+    <div class="upl-price-list-dev__text">
+      Downloads this section as a sorted image list. Items marked with * are limited or unavailable.
+    </div>
+    <div class="upl-price-list-dev__actions">
+      <button type="button" class="upl-price-list-dev__btn" data-upl-price-list-dev-shot="desktop">
+        Download desktop price list
+      </button>
+      <button type="button" class="upl-price-list-dev__btn" data-upl-price-list-dev-shot="mobile">
+        Download mobile price list
+      </button>
+    </div>
+    <div class="upl-price-list-dev__status" data-upl-price-list-dev-status hidden></div>
+  </div>
+
+  <div class="section-resource-list__header">
+    {%- content_for 'block', type: '_product-list-content', id: 'static-header' -%}
+  </div>
+
+  {%- comment -%}
+    Capture list_items so we can reuse it for grid and carousel layouts.
+  {%- endcomment -%}
+  {% capture list_items %}
+    {% if collection_products != null %}
+        {% for product in collection_products limit: product_limit %}
+          {%- liquid
+            comment
+              Build per product data attributes for filtering.
+            endcomment
+            assign brand_meta = product.metafields.relations.brand.value
+            if brand_meta != blank
+              assign item_brand_handle = brand_meta.brand_handle | default: brand_meta.name | handleize
+            else
+              assign item_brand_handle = product.vendor | handleize
+            endif
+
+            assign selected_variant = product.selected_or_first_available_variant
+            assign base_price_cents = selected_variant.price | default: product.price | default: 0
+            assign item_brand_label = ''
+            if brand_meta != blank
+              assign item_brand_label = brand_meta.name | default: brand_meta.brand_handle | default: product.vendor
+            else
+              assign item_brand_label = product.vendor
+            endif
+
+            assign data_socket = ''
+            assign data_form_factor = ''
+            assign data_gpu_handle = ''
+            assign data_memory_tech = ''
+            assign data_cooler_type = ''
+            assign data_watts = ''
+            assign data_cert = ''
+            assign data_dev_interface = ''
+            assign data_pcie_gen = ''
+
+            if section.settings.collection_type == 'cpu' or section.settings.collection_type == 'motherboard'
+              assign socket_meta = product.metafields.shopify['processor-socket']
+              if socket_meta and socket_meta.value != blank
+                assign first_socket = socket_meta.value | first
+                assign socket_label = first_socket.label | default: first_socket.value | default: first_socket.name | default: first_socket
+                assign data_socket = socket_label | handleize
+              endif
+            endif
+
+            if section.settings.collection_type == 'motherboard'
+              assign ff_meta = product.metafields.shopify['motherboard-form-factor']
+              if ff_meta and ff_meta.value != blank
+                assign ff_first = ff_meta.value | first
+                assign ff_name = ff_first.label | default: ff_first.name | default: ff_first.title | default: ff_first.value | default: ff_first
+                assign data_form_factor = ff_name | handleize
+              endif
+            endif
+
+            if section.settings.collection_type == 'gpu'
+              assign gh = product.metafields.custom.bench_gpu_handle | default: ''
+              if gh != ''
+                assign data_gpu_handle = gh | handleize
+              endif
+            endif
+
+            if section.settings.collection_type == 'ram'
+              assign mem_meta = product.metafields.shopify['memory-technology']
+              if mem_meta and mem_meta.value != blank
+                assign mt_first = mem_meta.value | first
+                assign mt_name = mt_first.label | default: mt_first.name | default: mt_first.title | default: mt_first.value | default: mt_first
+                assign data_memory_tech = mt_name | handleize
+              endif
+            endif
+
+            if section.settings.collection_type == 'cooler'
+              assign ct = product.metafields.custom.cpu_cooler_type | default: product.metafields.custom.cpu_cooler_types | default: ''
+              if ct != ''
+                assign data_cooler_type = ct | handleize
+              endif
+            endif
+
+            if section.settings.collection_type == 'psu'
+              assign wv = product.metafields.custom.watts | default: ''
+              if wv != ''
+                assign data_watts = wv | handleize
+              endif
+              assign cv = product.metafields.custom.certification | default: ''
+              if cv != ''
+                assign data_cert = cv | handleize
+              endif
+            endif
+
+            if section.settings.collection_type == 'ssd'
+              assign dev_meta2 = product.metafields.shopify['device-interface']
+              if dev_meta2 and dev_meta2.value != blank
+                assign di_first = dev_meta2.value | first
+                assign di_name = di_first.label | default: di_first.name | default: di_first.title | default: di_first.value | default: di_first
+                assign data_dev_interface = di_name | handleize
+              endif
+
+              assign pgv = product.metafields.custom.pcie_generation | default: ''
+              if pgv != ''
+                assign data_pcie_gen = pgv | handleize
+              endif
+            endif
+          -%}
+          <div
+            class="resource-list__item"
+            data-product-item
+            data-price="{{ product.price | default: 0 }}"
+            data-brand="{{ item_brand_handle }}"
+            data-upl-export-title="{{ product.title | strip | escape }}"
+            data-upl-export-brand="{{ item_brand_label | strip | escape }}"
+            data-upl-export-price="{{ base_price_cents | money | strip_html | escape }}"
+            data-upl-export-price-cents="{{ base_price_cents }}"
+            {% if product.available %}
+              data-availability="in-stock"
+            {% else %}
+              data-availability="out-of-stock"
+            {% endif %}
+            {% if data_socket != '' %}data-socket="{{ data_socket }}"{% endif %}
+            {% if data_form_factor != '' %}data-form-factor="{{ data_form_factor }}"{% endif %}
+            {% if data_gpu_handle != '' %}data-gpu-handle="{{ data_gpu_handle }}"{% endif %}
+            {% if data_memory_tech != '' %}data-memory-tech="{{ data_memory_tech }}"{% endif %}
+            {% if data_cooler_type != '' %}data-cooler-type="{{ data_cooler_type }}"{% endif %}
+            {% if data_watts != '' %}data-watts="{{ data_watts }}"{% endif %}
+            {% if data_cert != '' %}data-cert="{{ data_cert }}"{% endif %}
+            {% if data_dev_interface != '' %}data-device-interface="{{ data_dev_interface }}"{% endif %}
+            {% if data_pcie_gen != '' %}data-pcie-generation="{{ data_pcie_gen }}"{% endif %}
+          >
+            {% # theme-check-disable UniqueStaticBlockId %}
+              {% content_for 'block', type: '_product-card', id: 'static-product-card', closest.product: product %}
+            {% # theme-check-enable UniqueStaticBlockId %}
+            {%- if section.settings.collection_type == 'motherboard' -%}
+              <div
+                class="ucp-bundle-price-hint js-ucp-bundle-price-hint"
+                data-mobo-product-id="{{ product.id }}"
+                data-mobo-variant-id="{{ selected_variant.id }}"
+                data-base-price="{{ base_price_cents }}"
+                hidden
+              ></div>
+            {%- endif -%}
+          </div>
+
+          {% unless forloop.last %}
+            <!--@list/split-->
+          {% endunless %}
+        {% endfor %}
+
+    {% else %}
+      {% for i in (1..max_items) %}
+        <div class="resource-list__item">
+          {% # theme-check-disable UniqueStaticBlockId %}
+            {% content_for 'block', type: '_product-card', id: 'static-product-card', closest.product: null %}
+          {% # theme-check-enable UniqueStaticBlockId %}
+        </div>
+
+        {% unless forloop.last %}
+          <!--@list/split-->
+        {% endunless %}
+      {% endfor %}
+    {% endif %}
+  {% endcapture %}
+
+  {% liquid
+    assign list_items_array = list_items | strip | split: '<!--@list/split-->'
+  %}
+
+  {%- comment -%}
+    Layout switch.
+    - Grid. use theme resource-list.
+    - Carousel. custom horizontal track so filters and sorting do not break layout.
+  {%- endcomment -%}
+  {% if section.settings.layout_type == 'carousel' %}
+    <div class="upl-carousel" data-upl-carousel>
+      <button
+        type="button"
+        class="upl-carousel__nav upl-carousel__nav--prev"
+        aria-label="Previous"
+      >
+        ‹
+      </button>
+      <div class="upl-carousel__track" data-upl-carousel-track>
+        {% for item in list_items_array %}
+          {{ item }}
+        {% endfor %}
+      </div>
+      <button
+        type="button"
+        class="upl-carousel__nav upl-carousel__nav--next"
+        aria-label="Next"
+      >
+        ›
+      </button>
+    </div>
+  {% else %}
+    {% render 'resource-list',
+      list_items: list_items,
+      list_items_array: list_items_array,
+      settings: section.settings,
+      slide_count: product_limit,
+      content_type: 'products',
+      test_id: 'resource-list-grid'
+    %}
+  {% endif %}
+
+  <div
+    class="section-resource-list__content"
+    style="--horizontal-alignment: {{ section.settings.horizontal_alignment }};"
+  >
+    {%- content_for 'blocks' -%}
+  </div>
+</div>
+
+<script>
+  (function() {
+    // Root section element for scoping.
+    const sectionEl = document.getElementById('product-list-{{ section.id }}');
+    if (!sectionEl) return;
+
+    const devPanel = sectionEl.querySelector('[data-upl-price-list-dev]');
+    const devStatusEl = sectionEl.querySelector('[data-upl-price-list-dev-status]');
+    const devShotButtons = Array.from(sectionEl.querySelectorAll('[data-upl-price-list-dev-shot]'));
+    const PRICE_LIST_SCREENSHOT_MAX_ITEMS_DESKTOP = 72;
+    const PRICE_LIST_SCREENSHOT_MAX_ITEMS_MOBILE = 48;
+    let isDevMode = false;
+
+    try {
+      isDevMode = new URLSearchParams(window.location.search).get('dev') === '1';
+    } catch (err) {
+      isDevMode = false;
+    }
+
+    if (devPanel) {
+      devPanel.hidden = !isDevMode;
+    }
+
+    // Sort buttons and filter inputs.
+    const sortButtons = sectionEl.querySelectorAll('.upl-product-filters__sort-btn');
+    const filterInputs = sectionEl.querySelectorAll('[data-filter-key]');
+
+    // All product items we can show or hide.
+    const items = Array.from(sectionEl.querySelectorAll('.resource-list__item[data-product-item]'));
+    if (!items.length) {
+      if (isDevMode && devStatusEl) {
+        devStatusEl.hidden = false;
+        devStatusEl.textContent = 'No products found in this price-list section.';
+      }
+      return;
+    }
+
+    // Container that holds the items.
+    // In grid mode this is the resource-list grid.
+    // In carousel mode this is the custom track.
+    const carouselTrack = sectionEl.querySelector('[data-upl-carousel-track]');
+    const itemsContainer = carouselTrack || items[0].parentElement;
+
+    // Carousel navigation buttons. Only exist in carousel layout.
+    const prevBtn = sectionEl.querySelector('.upl-carousel__nav--prev');
+    const nextBtn = sectionEl.querySelector('.upl-carousel__nav--next');
+
+    // Save original order to keep stable sorting when prices are equal.
+    items.forEach((item, index) => {
+      item.dataset.originalOrder = index.toString();
+    });
+
+    // Helper. which sort button is active.
+    function getActiveSort() {
+      const activeBtn = sectionEl.querySelector('.upl-product-filters__sort-btn.is-active');
+      return activeBtn ? activeBtn.dataset.sort : 'lowest';
+    }
+
+    function getAvailabilityRank(item) {
+      return item.getAttribute('data-availability') === 'in-stock' ? 0 : 1;
+    }
+
+    function setDevStatus(message, isError) {
+      if (!devStatusEl) return;
+      devStatusEl.hidden = !message;
+      devStatusEl.textContent = message || '';
+      devStatusEl.classList.toggle('is-error', !!isError);
+    }
+
+    function safeFilePart(value) {
+      return String(value || 'price-list')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 80) || 'price-list';
+    }
+
+    function priceListFileDate() {
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return yyyy + '-' + mm + '-' + dd;
+    }
+
+    function priceListDisplayDate() {
+      return new Date().toLocaleDateString('en-PH', {
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit'
+      });
+    }
+
+    function getExportItems(activeFilters) {
+      return items
+        .filter((item) => itemPassesFilters(item, activeFilters || {}))
+        .map((item, index) => {
+          const priceCents = parseInt(item.getAttribute('data-upl-export-price-cents') || item.getAttribute('data-price') || '0', 10);
+          return {
+            title: item.getAttribute('data-upl-export-title') || 'Untitled product',
+            brand: item.getAttribute('data-upl-export-brand') || '',
+            price: item.getAttribute('data-upl-export-price') || '',
+            priceCents: Number.isFinite(priceCents) ? priceCents : 0,
+            available: item.getAttribute('data-availability') === 'in-stock',
+            originalOrder: parseInt(item.dataset.originalOrder || index.toString(), 10)
+          };
+        })
+        .sort((a, b) => {
+          if (a.priceCents !== b.priceCents) return a.priceCents - b.priceCents;
+          return a.originalOrder - b.originalOrder;
+        });
+    }
+
+    function chunkExportItems(exportItems, mode) {
+      const chunkSize = mode === 'mobile'
+        ? PRICE_LIST_SCREENSHOT_MAX_ITEMS_MOBILE
+        : PRICE_LIST_SCREENSHOT_MAX_ITEMS_DESKTOP;
+      const chunks = [];
+      for (let i = 0; i < exportItems.length; i += chunkSize) {
+        chunks.push(exportItems.slice(i, i + chunkSize));
+      }
+      return chunks.length ? chunks : [[]];
+    }
+
+    function canvasConfig(mode, itemCount) {
+      const isMobile = mode === 'mobile';
+      const width = isMobile ? 430 : 1040;
+      const topBar = isMobile ? 8 : 14;
+      const padX = isMobile ? 18 : 52;
+      const headerH = isMobile ? 64 : 92;
+      const heroH = isMobile ? 124 : 170;
+      const tableHeadH = isMobile ? 32 : 44;
+      const rowH = isMobile ? 62 : 76;
+      const footerH = isMobile ? 62 : 76;
+      const gap = isMobile ? 14 : 22;
+      const tableY = topBar + headerH + heroH + (gap * 2);
+      const height = tableY + tableHeadH + (itemCount * rowH) + footerH + gap;
+      return {
+        isMobile,
+        width,
+        height,
+        topBar,
+        padX,
+        headerH,
+        heroH,
+        tableHeadH,
+        rowH,
+        footerH,
+        gap,
+        tableY,
+        priceW: isMobile ? 96 : 190,
+        radius: isMobile ? 16 : 24,
+        heroImageSize: isMobile ? 78 : 124,
+        heroPad: isMobile ? 14 : 24,
+        heroTextGap: isMobile ? 12 : 24,
+        titleFont: isMobile ? 11 : 18,
+        brandFont: isMobile ? 9 : 12,
+        priceFont: isMobile ? 12 : 21
+      };
+    }
+
+    function canvasFont(weight, size) {
+      return weight + ' ' + size + 'px Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif';
+    }
+
+    function drawRoundRect(ctx, x, y, w, h, r, fill, stroke) {
+      const radius = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.arcTo(x + w, y, x + w, y + h, radius);
+      ctx.arcTo(x + w, y + h, x, y + h, radius);
+      ctx.arcTo(x, y + h, x, y, radius);
+      ctx.arcTo(x, y, x + w, y, radius);
+      ctx.closePath();
+      if (fill) {
+        ctx.fillStyle = fill;
+        ctx.fill();
+      }
+      if (stroke) {
+        ctx.strokeStyle = stroke;
+        ctx.stroke();
+      }
+    }
+
+    function truncateText(ctx, text, maxWidth) {
+      const value = String(text || '');
+      if (ctx.measureText(value).width <= maxWidth) return value;
+      let out = value;
+      while (out.length > 0 && ctx.measureText(out + '...').width > maxWidth) {
+        out = out.slice(0, -1);
+      }
+      return out ? out + '...' : '';
+    }
+
+    function wrapText(ctx, text, maxWidth, maxLines) {
+      const words = String(text || '').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+      const lines = [];
+      let line = '';
+
+      words.forEach((word) => {
+        if (lines.length >= maxLines) return;
+        const test = line ? line + ' ' + word : word;
+        if (ctx.measureText(test).width <= maxWidth) {
+          line = test;
+          return;
+        }
+        if (line) lines.push(line);
+        line = word;
+      });
+
+      if (line && lines.length < maxLines) lines.push(line);
+      if (lines.length > maxLines) lines.length = maxLines;
+
+      if (lines.length === maxLines) {
+        const usedWords = lines.join(' ').split(' ').length;
+        if (usedWords < words.length) {
+          lines[maxLines - 1] = truncateText(ctx, lines[maxLines - 1] + ' ' + words.slice(usedWords).join(' '), maxWidth);
+        }
+      }
+
+      return lines.length ? lines : [''];
+    }
+
+    function loadSafeCanvasImage(src) {
+      const url = String(src || '').trim();
+      if (!url) return Promise.resolve(null);
+
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.referrerPolicy = 'no-referrer';
+        img.onload = () => {
+          try {
+            const probe = document.createElement('canvas');
+            probe.width = 1;
+            probe.height = 1;
+            const probeCtx = probe.getContext('2d');
+            probeCtx.drawImage(img, 0, 0, 1, 1);
+            probe.toDataURL('image/png');
+            resolve(img);
+          } catch (err) {
+            resolve(null);
+          }
+        };
+        img.onerror = () => resolve(null);
+        img.src = url;
+      });
+    }
+
+    function loadPriceListCanvasAssets() {
+      return Promise.all([
+        loadSafeCanvasImage(sectionEl.getAttribute('data-screenshot-brand-logo') || ''),
+        loadSafeCanvasImage(sectionEl.getAttribute('data-upl-price-list-export-image') || sectionEl.getAttribute('data-upl-price-list-nav-image') || '')
+      ]).then(([logo, collectionImage]) => ({ logo, collectionImage }));
+    }
+
+    function drawImageContain(ctx, img, x, y, w, h) {
+      if (!img || !img.naturalWidth || !img.naturalHeight) return;
+      const imgRatio = img.naturalWidth / img.naturalHeight;
+      const boxRatio = w / h;
+      let drawW = w;
+      let drawH = h;
+      if (imgRatio > boxRatio) {
+        drawH = w / imgRatio;
+      } else {
+        drawW = h * imgRatio;
+      }
+      const drawX = x + ((w - drawW) / 2);
+      const drawY = y + ((h - drawH) / 2);
+      ctx.drawImage(img, drawX, drawY, drawW, drawH);
+    }
+
+    function drawPriceListCanvas(exportItems, mode, pageInfo, assets) {
+      const cfg = canvasConfig(mode, exportItems.length);
+      const canvas = document.createElement('canvas');
+      canvas.width = cfg.width;
+      canvas.height = cfg.height;
+      const ctx = canvas.getContext('2d');
+      const safeAssets = assets || {};
+      const title = sectionEl.getAttribute('data-upl-price-list-export-title') || 'Price List';
+      const pageLabel = pageInfo && pageInfo.totalPages > 1
+        ? ' | Page ' + pageInfo.page + ' of ' + pageInfo.totalPages
+        : '';
+      const totalCount = pageInfo && pageInfo.totalItems ? pageInfo.totalItems : exportItems.length;
+
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, cfg.width, cfg.height);
+      ctx.fillStyle = '#111';
+      ctx.fillRect(0, 0, cfg.width, cfg.topBar);
+
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'center';
+      if (safeAssets.logo) {
+        const logoW = cfg.isMobile ? 168 : 230;
+        const logoH = cfg.isMobile ? 44 : 64;
+        drawImageContain(ctx, safeAssets.logo, (cfg.width - logoW) / 2, cfg.topBar + ((cfg.headerH - logoH) / 2), logoW, logoH);
+      } else {
+        ctx.fillStyle = '#111';
+        ctx.font = canvasFont('950', cfg.isMobile ? 20 : 30);
+        ctx.fillText('UNCAPPED PC', cfg.width / 2, cfg.topBar + (cfg.headerH / 2));
+      }
+
+      ctx.textAlign = 'right';
+      ctx.fillStyle = 'rgba(17,17,17,.58)';
+      ctx.font = canvasFont('750', cfg.isMobile ? 10 : 14);
+      ctx.fillText(priceListDisplayDate(), cfg.width - cfg.padX, cfg.topBar + (cfg.headerH / 2));
+
+      const heroX = cfg.padX;
+      const heroY = cfg.topBar + cfg.headerH;
+      const heroW = cfg.width - (cfg.padX * 2);
+      const gradient = ctx.createLinearGradient(heroX, heroY, heroX + heroW, heroY + cfg.heroH);
+      gradient.addColorStop(0, '#fbfbfb');
+      gradient.addColorStop(0.55, '#fff');
+      gradient.addColorStop(1, '#f0f0f0');
+      drawRoundRect(ctx, heroX, heroY, heroW, cfg.heroH, cfg.radius, gradient, 'rgba(17,17,17,.12)');
+
+      const heroImageX = heroX + cfg.heroPad;
+      const heroImageY = heroY + ((cfg.heroH - cfg.heroImageSize) / 2);
+      drawRoundRect(ctx, heroImageX, heroImageY, cfg.heroImageSize, cfg.heroImageSize, cfg.isMobile ? 16 : 22, '#fff', 'rgba(17,17,17,.09)');
+      if (safeAssets.collectionImage) {
+        ctx.save();
+        drawRoundRect(ctx, heroImageX, heroImageY, cfg.heroImageSize, cfg.heroImageSize, cfg.isMobile ? 16 : 22);
+        ctx.clip();
+        drawImageContain(ctx, safeAssets.collectionImage, heroImageX + 8, heroImageY + 8, cfg.heroImageSize - 16, cfg.heroImageSize - 16);
+        ctx.restore();
+      } else {
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = 'rgba(17,17,17,.35)';
+        ctx.font = canvasFont('900', cfg.isMobile ? 11 : 16);
+        ctx.fillText('PRICE', heroImageX + (cfg.heroImageSize / 2), heroImageY + (cfg.heroImageSize / 2) - (cfg.isMobile ? 6 : 8));
+        ctx.fillText('LIST', heroImageX + (cfg.heroImageSize / 2), heroImageY + (cfg.heroImageSize / 2) + (cfg.isMobile ? 8 : 10));
+      }
+
+      const heroTextX = heroImageX + cfg.heroImageSize + cfg.heroTextGap;
+      const heroTextW = heroW - cfg.heroPad - cfg.heroImageSize - cfg.heroTextGap - cfg.heroPad;
+      const heroTextCenterY = heroY + (cfg.heroH / 2);
+      const heroLabelY = heroTextCenterY - (cfg.isMobile ? 32 : 46);
+      const heroTitleY = heroTextCenterY + (cfg.isMobile ? -4 : 0);
+      const heroTitleStep = cfg.isMobile ? 22 : 31;
+      const heroMetaY = heroTextCenterY + (cfg.isMobile ? 33 : 46);
+      ctx.textAlign = 'left';
+      ctx.fillStyle = 'rgba(17,17,17,.45)';
+      ctx.font = canvasFont('900', cfg.isMobile ? 9 : 12);
+      ctx.fillText('PRICE LIST', heroTextX, heroLabelY);
+
+      ctx.fillStyle = '#111';
+      ctx.font = canvasFont('950', cfg.isMobile ? 20 : 34);
+      ctx.textBaseline = 'alphabetic';
+      const titleLines = wrapText(ctx, title, heroTextW, cfg.isMobile ? 2 : 2);
+      titleLines.forEach((line, idx) => {
+        ctx.fillText(line, heroTextX, heroTitleY + (idx * heroTitleStep));
+      });
+
+      ctx.fillStyle = 'rgba(17,17,17,.56)';
+      ctx.font = canvasFont('700', cfg.isMobile ? 11 : 14);
+      const meta = totalCount + ' item' + (totalCount === 1 ? '' : 's') + pageLabel;
+      ctx.fillText(truncateText(ctx, meta, heroTextW), heroTextX, heroMetaY);
+
+      const tableX = cfg.padX;
+      const tableY = cfg.tableY;
+      const tableW = cfg.width - (cfg.padX * 2);
+      const priceX = tableX + tableW - cfg.priceW;
+      drawRoundRect(ctx, tableX, tableY, tableW, cfg.tableHeadH + (exportItems.length * cfg.rowH), cfg.radius, '#fff', 'rgba(17,17,17,.11)');
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(tableX, tableY, tableW, cfg.tableHeadH + (exportItems.length * cfg.rowH));
+      ctx.clip();
+
+      ctx.fillStyle = '#111';
+      ctx.fillRect(tableX, tableY, tableW, cfg.tableHeadH);
+      ctx.fillStyle = '#fff';
+      ctx.textBaseline = 'middle';
+      ctx.font = canvasFont('900', cfg.isMobile ? 9 : 12);
+      ctx.textAlign = 'left';
+      ctx.fillText('ITEM', tableX + (cfg.isMobile ? 12 : 20), tableY + (cfg.tableHeadH / 2));
+      ctx.textAlign = 'right';
+      ctx.fillText('PRICE', tableX + tableW - (cfg.isMobile ? 12 : 20), tableY + (cfg.tableHeadH / 2));
+
+      exportItems.forEach((item, index) => {
+        const y = tableY + cfg.tableHeadH + (index * cfg.rowH);
+        ctx.fillStyle = index % 2 ? '#fafafa' : '#fff';
+        ctx.fillRect(tableX, y, tableW, cfg.rowH);
+        if (index > 0) {
+          ctx.strokeStyle = 'rgba(17,17,17,.07)';
+          ctx.beginPath();
+          ctx.moveTo(tableX, y);
+          ctx.lineTo(tableX + tableW, y);
+          ctx.stroke();
+        }
+
+        const leftPad = cfg.isMobile ? 12 : 20;
+        const itemMaxW = tableW - cfg.priceW - leftPad - (cfg.isMobile ? 18 : 30);
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillStyle = '#111';
+        ctx.font = canvasFont('780', cfg.titleFont);
+        const name = item.title + (item.available ? '' : ' *');
+        const nameLines = wrapText(ctx, name, itemMaxW, 2);
+        const nameStartY = y + (cfg.isMobile ? 22 : 28);
+        nameLines.forEach((line, idx) => {
+          ctx.fillText(line, tableX + leftPad, nameStartY + (idx * (cfg.isMobile ? 13 : 20)));
+        });
+
+        if (item.brand) {
+          ctx.fillStyle = 'rgba(17,17,17,.44)';
+          ctx.font = canvasFont('650', cfg.brandFont);
+          const brand = truncateText(ctx, item.brand, itemMaxW);
+          ctx.fillText(brand, tableX + leftPad, y + cfg.rowH - (cfg.isMobile ? 10 : 14));
+        }
+
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#111';
+        ctx.font = canvasFont('900', cfg.priceFont);
+        ctx.fillText(item.price || '-', tableX + tableW - (cfg.isMobile ? 12 : 20), y + (cfg.rowH / 2));
+      });
+      ctx.restore();
+
+      const footerY = tableY + cfg.tableHeadH + (exportItems.length * cfg.rowH) + (cfg.isMobile ? 20 : 28);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = 'rgba(17,17,17,.62)';
+      ctx.font = canvasFont('650', cfg.isMobile ? 9 : 12);
+      ctx.fillText('* Check availability. Prices may change without prior notice.', cfg.width / 2, footerY);
+      ctx.fillStyle = '#111';
+      ctx.font = canvasFont('850', cfg.isMobile ? 9 : 13);
+      ctx.fillText('uncappedpc@gmail.com | 0921-287-1407 | uncappedpc.com', cfg.width / 2, footerY + (cfg.isMobile ? 17 : 22));
+
+      return canvas;
+    }
+
+    function downloadCanvas(canvas, filename) {
+      function clickDownload(url) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      if (canvas.toBlob) {
+        return new Promise((resolve) => {
+          canvas.toBlob((blob) => {
+            if (!blob) {
+              clickDownload(canvas.toDataURL('image/png'));
+              resolve();
+              return;
+            }
+
+            const url = URL.createObjectURL(blob);
+            clickDownload(url);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            resolve();
+          }, 'image/png');
+        });
+      }
+
+      clickDownload(canvas.toDataURL('image/png'));
+      return Promise.resolve();
+    }
+
+    function generatePriceListScreenshot(mode) {
+      const exportItems = getExportItems(getActiveFilters());
+      if (!exportItems.length) {
+        setDevStatus('No products match the active filters for this price-list section.', true);
+        return;
+      }
+
+      devShotButtons.forEach((btn) => {
+        btn.disabled = true;
+      });
+      const startedAt = Date.now();
+      const chunks = chunkExportItems(exportItems, mode);
+      setDevStatus('Preparing ' + mode + ' price list...', false);
+
+      loadPriceListCanvasAssets()
+        .then((assets) => chunks.reduce((chain, chunk, index) => {
+          return chain.then(() => {
+            const page = index + 1;
+            const totalPages = chunks.length;
+            const canvas = drawPriceListCanvas(chunk, mode, {
+              page,
+              totalPages,
+              totalItems: exportItems.length
+            }, assets);
+            const title = sectionEl.getAttribute('data-upl-price-list-export-title') || 'price-list';
+            const pageSuffix = totalPages > 1 ? '-part-' + page + '-of-' + totalPages : '';
+            setDevStatus('Drawing screenshot ' + page + ' of ' + totalPages + '...', false);
+            return downloadCanvas(
+              canvas,
+              'uncapped-price-list-' + safeFilePart(title) + '-' + mode + pageSuffix + '-' + priceListFileDate() + '.png'
+            );
+          });
+        }, Promise.resolve()))
+        .then(() => {
+          const elapsed = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+          const fileCount = chunks.length;
+          setDevStatus('Downloaded ' + fileCount + ' ' + mode + ' price-list image' + (fileCount === 1 ? '' : 's') + ' for ' + exportItems.length + ' item' + (exportItems.length === 1 ? '' : 's') + ' in ' + elapsed + 's.', false);
+        })
+        .catch(() => {
+          setDevStatus('Could not generate screenshot. Try the mobile version or reduce the number of products rendered in this section.', true);
+        })
+        .finally(() => {
+          devShotButtons.forEach((btn) => {
+            btn.disabled = false;
+          });
+        });
+    }
+
+    // Helper. build a map of active filters.
+    // Example. { brand: ['amd','msi'], 'cooler-type': ['air-cooler'] }
+    function getActiveFilters() {
+      const map = {};
+      filterInputs.forEach(input => {
+        const key = input.dataset.filterKey;
+        if (!map[key]) map[key] = [];
+
+        if (input.tagName === 'SELECT') {
+          const value = input.value;
+          if (value) {
+            map[key].push(value);
+          }
+          return;
+        }
+
+        if (input.checked) {
+          map[key].push(input.value);
+        }
+      });
+      return map;
+    }
+
+    // Helper. does this item pass all active filters.
+    // Logic. AND between groups, OR inside a group.
+    function itemPassesFilters(item, activeFilters) {
+      for (const key in activeFilters) {
+        const values = activeFilters[key];
+        if (!values.length) continue;
+
+        const attrName = 'data-' + key;
+        const itemValue = (item.getAttribute(attrName) || '').trim();
+        if (!itemValue || values.indexOf(itemValue) === -1) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    // Core function. apply filters and sorting.
+    function applyFilters() {
+      const sortDir = getActiveSort();
+      const activeFilters = getActiveFilters();
+      const visibleItems = [];
+      const hiddenItems = [];
+
+      // 1. show or hide based on filters.
+      items.forEach(item => {
+        const passes = itemPassesFilters(item, activeFilters);
+        if (passes) {
+          item.style.display = '';
+          visibleItems.push(item);
+        } else {
+          item.style.display = 'none';
+          hiddenItems.push(item);
+        }
+      });
+
+      // 2. sort visible items by price, optionally grouping in-stock products first.
+      visibleItems.sort((a, b) => {
+        if (sectionEl.dataset.uplAvailabilitySortPriority === 'in_stock_first') {
+          const stockDiff = getAvailabilityRank(a) - getAvailabilityRank(b);
+          if (stockDiff !== 0) return stockDiff;
+        }
+
+        const priceA = parseInt(a.getAttribute('data-price') || '0', 10);
+        const priceB = parseInt(b.getAttribute('data-price') || '0', 10);
+
+        if (priceA === priceB) {
+          const oa = parseInt(a.dataset.originalOrder || '0', 10);
+          const ob = parseInt(b.dataset.originalOrder || '0', 10);
+          return oa - ob;
+        }
+
+        if (sortDir === 'highest') {
+          return priceB - priceA;
+        }
+        return priceA - priceB;
+      });
+
+      // 3. put visible items first, hidden items after.
+      const orderedItems = visibleItems.concat(hiddenItems);
+
+      // 4. re-append items in new order.
+      orderedItems.forEach((item, index) => {
+        item.style.order = index.toString();
+        itemsContainer.appendChild(item);
+      });
+
+      // 5. reset scroll position for carousel so first item is visible.
+      if (itemsContainer.scrollTo) {
+        itemsContainer.scrollTo({ left: 0, behavior: 'instant' });
+      } else {
+        itemsContainer.scrollLeft = 0;
+      }
+    }
+
+    // Sort button listeners.
+    sortButtons.forEach(btn => {
+      btn.addEventListener('click', function() {
+        sortButtons.forEach(b => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        applyFilters();
+      });
+    });
+
+    // Filter checkbox listeners.
+    filterInputs.forEach(input => {
+      input.addEventListener('change', applyFilters);
+    });
+
+    if (isDevMode) {
+      devShotButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          generatePriceListScreenshot(btn.getAttribute('data-upl-price-list-dev-shot') || 'desktop');
+        });
+      });
+    }
+
+    // Carousel nav. simple scrollBy left or right.
+    if (carouselTrack && prevBtn && nextBtn) {
+      const scrollAmount = () => carouselTrack.clientWidth * 0.8;
+
+      prevBtn.addEventListener('click', function() {
+        carouselTrack.scrollBy({ left: -scrollAmount(), behavior: 'smooth' });
+      });
+
+      nextBtn.addEventListener('click', function() {
+        carouselTrack.scrollBy({ left: scrollAmount(), behavior: 'smooth' });
+      });
+    }
+
+    // Initial run.
+    applyFilters();
+  })();
+</script>
+
+<style>
+  /* Filter bar layout and styles */
+  .upl-product-filters {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-block-end: 0.75rem;
+  }
+
+  .upl-product-filters__row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    align-items: flex-start;
+  }
+
+  .upl-product-filters__group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+  }
+
+  .upl-product-filters__group--sort {
+    min-width: 180px;
+  }
+
+  .upl-product-filters__label {
+    font-weight: 600;
+  }
+
+  .upl-product-filters__controls {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .upl-product-filters__controls--wrap {
+    max-width: 640px;
+  }
+
+  .upl-product-filters__sort-btn {
+    border-radius: 999px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    padding: 0.25rem 0.75rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    background: #fff;
+    white-space: nowrap;
+  }
+
+  .color-scheme-2 .upl-product-filters__sort-btn,
+  .color-scheme-3 .upl-product-filters__sort-btn {
+    background: transparent;
+  }
+
+  .upl-product-filters__select {
+    border-radius: 999px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    padding: 0.3rem 0.75rem;
+    font-size: 0.8rem;
+    background: #fff;
+    min-height: 2rem;
+  }
+
+  .color-scheme-2 .upl-product-filters__select,
+  .color-scheme-3 .upl-product-filters__select {
+    background: transparent;
+  }
+
+  .upl-product-filters__sort-btn.is-active {
+    border-color: rgba(0, 0, 0, 0.8);
+  }
+
+  .upl-product-filters__checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-inline-end: 0.75rem;
+    margin-block-end: 0.25rem;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .upl-product-filters__checkbox input[type='checkbox'] {
+    accent-color: currentColor;
+  }
+
+  .upl-price-list-dev {
+    margin: 0 0 1rem;
+    padding: 1rem;
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    border-radius: 1rem;
+    background: rgba(0, 0, 0, 0.035);
+    color: currentColor;
+  }
+
+  .upl-price-list-dev__eyebrow {
+    margin-bottom: 0.15rem;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0.58;
+  }
+
+  .upl-price-list-dev__title {
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1.2;
+  }
+
+  .upl-price-list-dev__text {
+    margin-top: 0.25rem;
+    font-size: 0.85rem;
+    line-height: 1.35;
+    opacity: 0.72;
+  }
+
+  .upl-price-list-dev__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+
+  .upl-price-list-dev__btn {
+    border: 1px solid rgba(0, 0, 0, 0.18);
+    border-radius: 999px;
+    background: #111;
+    color: #fff;
+    padding: 0.55rem 0.9rem;
+    font-size: 0.82rem;
+    font-weight: 750;
+    cursor: pointer;
+  }
+
+  .upl-price-list-dev__btn:disabled {
+    cursor: wait;
+    opacity: 0.6;
+  }
+
+  .upl-price-list-dev__status {
+    margin-top: 0.7rem;
+    font-size: 0.82rem;
+    font-weight: 650;
+    opacity: 0.76;
+  }
+
+  .upl-price-list-dev__status.is-error {
+    color: #9f1d1d;
+    opacity: 1;
+  }
+
+  .ucp-bundle-price-hint {
+    margin-top: 0.2rem;
+    font-size: 0.85rem;
+    line-height: 1.2;
+  }
+
+  .ucp-bundle-price-hint__line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    align-items: baseline;
+  }
+
+  .ucp-bundle-price-hint__cpu {
+    font-weight: 600;
+  }
+
+  .ucp-bundle-price-hint__compare {
+    margin-left: 0.25rem;
+    opacity: 0.65;
+    text-decoration: line-through;
+  }
+
+  .ucp-bundle-price-hint__price {
+    margin-left: 0.25rem;
+  }
+
+  .ucp-bundle-price-hint__save {
+    opacity: 0.85;
+  }
+
+  .resource-list__item.ucp-bundle-active product-price {
+    opacity: 0.65;
+    text-decoration: line-through;
+  }
+
+  @media (max-width: 749px) {
+    .upl-product-filters__row {
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: flex-start;
+    }
+
+    .upl-product-filters__group--sort,
+    .upl-product-filters__group--availability {
+      flex: 1 1 100%;
+    }
+
+    .upl-product-filters__group--select {
+      flex: 1 1 calc(50% - 0.75rem);
+      max-width: calc(50% - 0.75rem);
+    }
+
+    .upl-product-filters__group--select .upl-product-filters__controls {
+      width: 100%;
+    }
+
+    .upl-product-filters__select {
+      width: 100%;
+    }
+  }
+
+  /* Carousel layout.
+     This is where we control horizontal vs vertical layout and card size. */
+  #product-list-{{ section.id }} .upl-carousel__track {
+    /* mobile card width controlled by setting:
+       - '60cqw' (1 per view) -> 90%
+       - '44cqw' (2 per view) -> 60% */
+    --upl-mobile-card-width: {% if section.settings.mobile_card_size == '44cqw' %}60%{% else %}90%{% endif %};
+    /* desktop card width taken from "Columns" setting */
+    --upl-desktop-card-width: calc(100% / {{ section.settings.columns | default: 4 }});
+  }
+
+  .upl-carousel {
+    position: relative;
+  }
+
+  .upl-carousel__track {
+    display: flex;         /* row layout */
+    flex-wrap: nowrap;     /* prevent wrapping so items do not stack vertically */
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    gap: 0.75rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .upl-carousel__track .resource-list__item {
+    flex: 0 0 var(--upl-mobile-card-width);
+    scroll-snap-align: start;
+  }
+
+  @media (min-width: 750px) {
+    .upl-carousel__track .resource-list__item {
+      flex: 0 0 var(--upl-desktop-card-width);
+      max-width: var(--upl-desktop-card-width);
+    }
+  }
+
+  .upl-carousel__nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    border: none;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    z-index: 2;
+  }
+
+  .upl-carousel__nav--prev {
+    left: 0.25rem;
+  }
+
+  .upl-carousel__nav--next {
+    right: 0.25rem;
+  }
+
+  @media (max-width: 749px) {
+    .upl-carousel__nav {
+      display: none;
+    }
+  }
+</style>
+
+<script src="{{ 'ucp-bundle-price-hint-autorefresh.js' | asset_url }}" defer></script>
+<script src="{{ 'ucp-source-tracker.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Uncapped PL1",
+  "class": "ui-test-product-list",
+  "blocks": [
+    {
+      "type": "@theme"
+    },
+    {
+      "type": "@app"
+    },
+    {
+      "type": "_divider"
+    }
+  ],
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": "Collection"
+    },
+    {
+      "type": "select",
+      "id": "collection_type",
+      "label": "Collection type (extra filters)",
+      "options": [
+        { "value": "generic", "label": "Generic / all products" },
+        { "value": "cpu", "label": "CPU" },
+        { "value": "motherboard", "label": "Motherboard" },
+        { "value": "gpu", "label": "GPU" },
+        { "value": "ram", "label": "RAM" },
+        { "value": "cooler", "label": "CPU Cooler" },
+        { "value": "psu", "label": "Power supply (PSU)" },
+        { "value": "ssd", "label": "SSD / storage" }
+      ],
+      "default": "generic"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_filters",
+      "label": "Show price & brand filters",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "availability_in_stock_checked",
+      "label": "Start with In stock enabled",
+      "default": true,
+      "visible_if": "{{ section.settings.show_filters }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "availability_out_of_stock_checked",
+      "label": "Start with Out of stock enabled",
+      "default": false,
+      "visible_if": "{{ section.settings.show_filters }}"
+    },
+    {
+      "type": "select",
+      "id": "availability_sort_priority",
+      "label": "Availability sort priority",
+      "options": [
+        { "value": "price_only", "label": "Price only" },
+        { "value": "in_stock_first", "label": "In stock first, then price" }
+      ],
+      "default": "price_only",
+      "visible_if": "{{ section.settings.show_filters }}"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_all_products_from_collection",
+      "label": "Show all products from collection",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "layout_type",
+      "label": "Layout type",
+      "options": [
+        { "value": "grid", "label": "Grid" },
+        { "value": "carousel", "label": "Carousel" },
+        { "value": "editorial", "label": "Editorial" }
+      ],
+      "default": "grid"
+    },
+    {
+      "type": "checkbox",
+      "id": "carousel_on_mobile",
+      "label": "Use carousel on mobile (when layout is grid)",
+      "default": false,
+      "visible_if": "{{ section.settings.layout_type != 'carousel' }}"
+    },
+    {
+      "type": "range",
+      "id": "max_products",
+      "label": "Max product count (when not showing all)",
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "columns",
+      "label": "Columns (also controls carousel card width on desktop)",
+      "min": 1,
+      "max": 8,
+      "step": 1,
+      "default": 4,
+      "visible_if": "{{ section.settings.layout_type != 'editorial' }}"
+    },
+    {
+      "type": "select",
+      "id": "mobile_columns",
+      "label": "Mobile columns (grid)",
+      "options": [
+        { "value": "1", "label": "1" },
+        { "value": "2", "label": "2" }
+      ],
+      "default": "2",
+      "visible_if": "{{ section.settings.layout_type == 'grid' and section.settings.carousel_on_mobile == false }}"
+    },
+    {
+      "type": "select",
+      "id": "mobile_card_size",
+      "label": "Mobile card size (carousel)",
+      "options": [
+        { "value": "60cqw", "label": "1 per view" },
+        { "value": "44cqw", "label": "2 per view" }
+      ],
+      "default": "60cqw",
+      "visible_if": "{{ section.settings.layout_type == 'carousel' or section.settings.carousel_on_mobile == true }}"
+    },
+    {
+      "type": "range",
+      "id": "columns_gap",
+      "label": "Horizontal gap",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 8,
+      "visible_if": "{{ section.settings.layout_type == 'grid' or section.settings.layout_type == 'carousel' }}"
+    },
+    {
+      "type": "range",
+      "id": "rows_gap",
+      "label": "Vertical gap (grid)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 8,
+      "visible_if": "{{ section.settings.layout_type == 'grid'}}"
+    },
+    {
+      "type": "header",
+      "content": "Carousel navigation",
+      "visible_if": "{{ section.settings.layout_type == 'carousel' or section.settings.carousel_on_mobile == true }}"
+    },
+    {
+      "type": "select",
+      "id": "icons_style",
+      "label": "Icon style",
+      "options": [
+        { "value": "arrow", "label": "Arrows" },
+        { "value": "chevron", "label": "Chevrons" },
+        { "value": "arrows_large", "label": "Large arrows" },
+        { "value": "chevron_large", "label": "Large chevrons" },
+        { "value": "none", "label": "None" }
+      ],
+      "default": "arrow",
+      "visible_if": "{{ section.settings.layout_type == 'carousel' or section.settings.carousel_on_mobile == true }}"
+    },
+    {
+      "type": "select",
+      "id": "icons_shape",
+      "label": "Icon background",
+      "options": [
+        { "value": "none", "label": "None" },
+        { "value": "circle", "label": "Circle" },
+        { "value": "square", "label": "Square" }
+      ],
+      "default": "none",
+      "visible_if": "{{ section.settings.icons_style != 'none' and section.settings.layout_type == 'carousel' or section.settings.carousel_on_mobile == true }}"
+    },
+    {
+      "type": "header",
+      "content": "Section layout"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Width",
+      "options": [
+        { "value": "page-width", "label": "Page width" },
+        { "value": "full-width", "label": "Full width" }
+      ],
+      "default": "page-width"
+    },
+    {
+      "type": "select",
+      "id": "horizontal_alignment",
+      "label": "Horizontal alignment",
+      "options": [
+        { "value": "flex-start", "label": "Left" },
+        { "value": "center", "label": "Center" },
+        { "value": "flex-end", "label": "Right" }
+      ],
+      "default": "flex-start"
+    },
+    {
+      "type": "range",
+      "id": "gap",
+      "label": "Section gap",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "scheme-1"
+    },
+    {
+      "type": "header",
+      "content": "Section padding"
+    },
+    {
+      "type": "range",
+      "id": "padding-block-start",
+      "label": "Top padding",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "padding-block-end",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    }
+  ],
+  "presets": [
+    {
+      "name": "Uncapped PL1",
+      "category": "Products"
+    }
+  ]
+}
+{% endschema %}

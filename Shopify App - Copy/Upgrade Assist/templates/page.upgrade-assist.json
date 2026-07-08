@@ -1,0 +1,16 @@
+{
+  "sections": {
+    "main": {
+      "type": "upgrade-assist-gate",
+      "settings": {
+        "heading": "Upgrade Assist",
+        "subheading": "We help our buyers sell their old parts.",
+        "logged_out_message": "Sign in to submit your old component for review. We’ll help you create a listing if it qualifies.",
+        "logged_in_message": "You’re signed in. This is where the seller intake form for Upgrade Assist will appear."
+      }
+    }
+  },
+  "order": [
+    "main"
+  ]
+}

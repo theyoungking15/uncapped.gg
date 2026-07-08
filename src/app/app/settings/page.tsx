@@ -9,7 +9,7 @@ export default async function SettingsPage() {
       <header className="pageHead">
         <div>
           <h1>Shop profile</h1>
-          <p>This creates the hosted public shop page and stores Facebook/Messenger contact links.</p>
+          <p>This creates the hosted seller profile and stores contact, about, and external review proof links.</p>
         </div>
       </header>
       <section className="panel">
@@ -18,4 +18,3 @@ export default async function SettingsPage() {
     </>
   );
 }
-

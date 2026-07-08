@@ -1,0 +1,1492 @@
+{% liquid
+  comment
+    Basic product collection setup.
+    - max_items: how many products to show when "show all" is false.
+    - show_all: when true, we show full collection (within Shopify limits).
+    - collection_products: the products we will render.
+  endcomment
+  assign max_items = section.settings.max_products
+  assign show_all = section.settings.show_all_products_from_collection
+  assign collection_products = null
+  assign product_limit = max_items
+
+  if section.settings.collection != blank and shop.products_count != 0
+    assign collection_products = section.settings.collection.products
+    assign total_in_collection = collection_products.size
+
+    if show_all
+      assign product_limit = total_in_collection
+    endif
+  endif
+
+  comment
+    Default filter presets.
+    Each "default_*_handles" setting is a comma-separated list of handles.
+    If blank. everything in that group is checked by default.
+  endcomment
+
+  assign default_socket_csv = section.settings.default_socket_handles | default: ' ' | downcase | replace: ' ', '' | replace: '\n', '' | replace: '\r', ''
+  assign default_socket_csv = ',' | append: default_socket_csv | append: ','
+  assign use_default_socket = ' '
+
+  assign default_form_factor_csv = section.settings.default_form_factor_handles | default: '' | downcase | replace: ' ', '' | replace: '\n', '' | replace: '\r', ''
+  assign default_form_factor_csv = ',' | append: default_form_factor_csv | append: ','
+  assign use_default_form_factor = ' '
+
+  assign default_gpu_csv = section.settings.default_gpu_handles | default: '' | downcase | replace: ' ', '' | replace: '\n', '' | replace: '\r', ''
+  assign default_gpu_csv = ',' | append: default_gpu_csv | append: ','
+  assign use_default_gpu = ' '
+
+  assign default_mem_tech_csv = section.settings.default_mem_tech_handles | default: '' | downcase | replace: ' ', '' | replace: '\n', '' | replace: '\r', ''
+  assign default_mem_tech_csv = ',' | append: default_mem_tech_csv | append: ','
+  assign use_default_mem_tech = ' '
+
+  assign default_watts_csv = section.settings.default_watts_handles | default: '' | downcase | replace: ' ', '' | replace: '\n', '' | replace: '\r', ''
+  assign default_watts_csv = ',' | append: default_watts_csv | append: ','
+  assign use_default_watts = ' '
+
+  assign default_cert_csv = section.settings.default_cert_handles | default: '' | downcase | replace: ' ', '' | replace: '\n', '' | replace: '\r', ''
+  assign default_cert_csv = ',' | append: default_cert_csv | append: ','
+  assign use_default_cert = ' '
+
+  assign default_dev_interface_csv = section.settings.default_device_interface_handles | default: '' | downcase | replace: ' ', '' | replace: '\n', '' | replace: '\r', ''
+  assign default_dev_interface_csv = ',' | append: default_dev_interface_csv | append: ','
+  assign use_default_dev_interface = ' '
+
+  assign default_pcie_gen_csv = section.settings.default_pcie_generation_handles | default: '' | downcase | replace: ' ', '' | replace: '\n', '' | replace: '\r', ''
+  assign default_pcie_gen_csv = ',' | append: default_pcie_gen_csv | append: ','
+  assign use_default_pcie_gen = ' '
+
+  comment
+    Build unique BRAND handle list from the section collection.
+    We only care about the handle for data attributes and filter values.
+  endcomment
+  assign brand_handles_string = ','
+
+  if collection_products != null
+    for product in collection_products limit: product_limit
+      assign brand_meta = product.metafields.relations.brand.value
+      if brand_meta != blank
+        assign b_handle = brand_meta.brand_handle | default: brand_meta.name | handleize
+      else
+        assign b_handle = product.vendor | handleize
+      endif
+
+      assign b_token = ',' | append: b_handle | append: ','
+      unless brand_handles_string contains b_token
+        assign brand_handles_string = brand_handles_string | append: b_handle | append: ','
+      endunless
+    endfor
+  endif
+
+  assign brand_handles = brand_handles_string | split: ',' | uniq
+
+  comment
+    Extra filter value collectors per collection type.
+    We build unique handle lists that become checkbox chips.
+  endcomment
+  assign socket_values = ','
+  assign form_factor_values = ','
+  assign gpu_handle_values = ','
+  assign mem_tech_values = ','
+  assign cooler_type_values = ','
+  assign watts_values = ','
+  assign cert_values = ','
+  assign dev_interface_values = ','
+  assign pcie_gen_values = ','
+
+  comment
+    Availability flags for the availability filter.
+  endcomment
+  assign has_in_stock = false
+  assign has_out_of_stock = false
+
+  if collection_products != null
+    for product in collection_products limit: product_limit
+      if product.available
+        assign has_in_stock = true
+      else
+        assign has_out_of_stock = true
+      endif
+
+      if section.settings.collection_type == 'cpu' or section.settings.collection_type == 'motherboard'
+        assign socket_meta = product.metafields.shopify['processor-socket']
+        if socket_meta and socket_meta.value != blank
+          for s in socket_meta.value
+            assign socket_label = s.label | default: s.value | default: s.name | default: s
+            assign s_handle = socket_label | handleize
+            assign s_token = ',' | append: s_handle | append: ','
+            unless socket_values contains s_token
+              assign socket_values = socket_values | append: s_handle | append: ','
+            endunless
+          endfor
+        endif
+      endif
+
+      if section.settings.collection_type == 'motherboard'
+        assign ff_meta = product.metafields.shopify['motherboard-form-factor']
+        if ff_meta and ff_meta.value != blank
+          for ff in ff_meta.value
+            assign ff_name = ff.label | default: ff.name | default: ff.title | default: ff.value | default: ff
+            assign ff_handle = ff_name | handleize
+            assign ff_token = ',' | append: ff_handle | append: ','
+            unless form_factor_values contains ff_token
+              assign form_factor_values = form_factor_values | append: ff_handle | append: ','
+            endunless
+          endfor
+        endif
+      endif
+
+      if section.settings.collection_type == 'gpu'
+        assign g_handle = product.metafields.custom.bench_gpu_handle | default: ''
+        if g_handle != ''
+          assign g_handle_norm = g_handle | handleize
+          assign g_token = ',' | append: g_handle_norm | append: ','
+          unless gpu_handle_values contains g_token
+            assign gpu_handle_values = gpu_handle_values | append: g_handle_norm | append: ','
+          endunless
+        endif
+      endif
+
+      if section.settings.collection_type == 'ram'
+        assign mem_meta = product.metafields.shopify['memory-technology']
+        if mem_meta and mem_meta.value != blank
+          for mt in mem_meta.value
+            assign mt_name = mt.label | default: mt.name | default: mt.title | default: mt.value | default: mt
+            assign mt_handle = mt_name | handleize
+            assign mt_token = ',' | append: mt_handle | append: ','
+            unless mem_tech_values contains mt_token
+              assign mem_tech_values = mem_tech_values | append: mt_handle | append: ','
+            endunless
+          endfor
+        endif
+      endif
+
+      if section.settings.collection_type == 'cooler'
+        assign c_type = product.metafields.custom.cpu_cooler_type | default: product.metafields.custom.cpu_cooler_types | default: ''
+        if c_type != ''
+          assign c_handle = c_type | handleize
+          assign c_token = ',' | append: c_handle | append: ','
+          unless cooler_type_values contains c_token
+            assign cooler_type_values = cooler_type_values | append: c_handle | append: ','
+          endunless
+        endif
+      endif
+
+      if section.settings.collection_type == 'psu'
+        assign w_meta = product.metafields.custom.watts | default: ''
+        if w_meta != ''
+          assign w_handle = w_meta | handleize
+          assign w_token = ',' | append: w_handle | append: ','
+          unless watts_values contains w_token
+            assign watts_values = watts_values | append: w_handle | append: ','
+          endunless
+        endif
+
+        assign cert_meta = product.metafields.custom.certification | default: ''
+        if cert_meta != ''
+          assign cert_handle = cert_meta | handleize
+          assign cert_token = ',' | append: cert_handle | append: ','
+          unless cert_values contains cert_token
+            assign cert_values = cert_values | append: cert_handle | append: ','
+          endunless
+        endif
+      endif
+
+      if section.settings.collection_type == 'ssd'
+        assign dev_meta = product.metafields.shopify['device-interface']
+        if dev_meta and dev_meta.value != blank
+          for di in dev_meta.value
+            assign di_name = di.label | default: di.name | default: di.title | default: di.value | default: di
+            assign di_handle = di_name | handleize
+            assign di_token = ',' | append: di_handle | append: ','
+            unless dev_interface_values contains di_token
+              assign dev_interface_values = dev_interface_values | append: di_handle | append: ','
+            endunless
+          endfor
+        endif
+
+        assign pg_meta = product.metafields.custom.pcie_generation | default: ''
+        if pg_meta != ''
+          assign pg_handle = pg_meta | handleize
+          assign pg_token = ',' | append: pg_handle | append: ','
+          unless pcie_gen_values contains pg_token
+            assign pcie_gen_values = pcie_gen_values | append: pg_handle | append: ','
+          endunless
+        endif
+      endif
+    endfor
+  endif
+
+  assign socket_handles        = socket_values        | split: ',' | uniq
+  assign form_factor_handles   = form_factor_values   | split: ',' | uniq
+  assign gpu_handle_handles    = gpu_handle_values    | split: ',' | uniq
+  assign mem_tech_handles      = mem_tech_values      | split: ',' | uniq
+  assign cooler_type_handles   = cooler_type_values   | split: ',' | uniq
+  assign watts_handles         = watts_values         | split: ',' | uniq
+  assign cert_handles          = cert_values          | split: ',' | uniq
+  assign dev_interface_handles = dev_interface_values | split: ',' | uniq
+  assign pcie_gen_handles      = pcie_gen_values      | split: ',' | uniq
+%}
+
+<div class="section-background color-{{ section.settings.color_scheme }}"></div>
+<div
+  id="product-list-{{ section.id }}"
+  data-testid="product-list"
+  data-ucp-source-page-type="price_list"
+  data-ucp-source-campaign="{{ page.handle | default: 'price-list' | escape }}"
+  data-ucp-source-content="{{ section.settings.collection_type | default: section.settings.collection.handle | default: section.id | escape }}"
+  class="
+    section
+    section--{{ section.settings.section_width }}
+    color-{{ section.settings.color_scheme }}
+    section-resource-list
+    spacing-style
+    gap-style
+  "
+  style="
+    {% render 'spacing-style', settings: section.settings %}
+    {% render 'gap-style', value: section.settings.gap %}
+  "
+>
+  {%- if section.settings.show_filters -%}
+    <div class="upl-product-filters">
+      <div class="upl-product-filters__row">
+        {%- comment -%}
+          Sort group. Client side sort by price.
+        {%- endcomment -%}
+        <div class="upl-product-filters__group upl-product-filters__group--sort">
+          <span class="upl-product-filters__label">Sort</span>
+          <div class="upl-product-filters__controls">
+            <button
+              type="button"
+              class="upl-product-filters__sort-btn {% if section.settings.default_sort != 'highest' %}is-active{% endif %}"
+              data-sort="lowest"
+            >
+              Lowest
+            </button>
+            <button
+              type="button"
+              class="upl-product-filters__sort-btn {% if section.settings.default_sort == 'highest' %}is-active{% endif %}"
+              data-sort="highest"
+            >
+              Highest
+            </button>
+          </div>
+        </div>
+
+        {%- comment -%}
+          Availability filter group.
+          Uses product.available and data-availability attribute.
+        {%- endcomment -%}
+        {%- if has_in_stock or has_out_of_stock -%}
+          <div class="upl-product-filters__group upl-product-filters__group--availability">
+            <span class="upl-product-filters__label">Availability</span>
+            <div class="upl-product-filters__controls upl-product-filters__controls--wrap">
+              {%- if has_in_stock -%}
+                <label class="upl-product-filters__checkbox">
+                  <input
+                    type="checkbox"
+                    data-filter-key="availability"
+                    value="in-stock"
+                    {% if section.settings.default_in_stock_checked %}checked{% endif %}
+                  >
+                  <span>In stock</span>
+                </label>
+              {%- endif -%}
+              {%- if has_out_of_stock -%}
+                <label class="upl-product-filters__checkbox">
+                  <input
+                    type="checkbox"
+                    data-filter-key="availability"
+                    value="out-of-stock"
+                    {% if section.settings.default_out_of_stock_checked %}checked{% endif %}
+                  >
+                  <span>Out of stock</span>
+                </label>
+              {%- endif -%}
+            </div>
+          </div>
+        {%- endif -%}
+
+        {%- comment -%}
+          Brand filter group.
+        {%- endcomment -%}
+        {%- if brand_handles.size > 0 -%}
+          <div class="upl-product-filters__group upl-product-filters__group--select">
+            <span class="upl-product-filters__label">Brand</span>
+            <div class="upl-product-filters__controls">
+              <select class="upl-product-filters__select" data-filter-key="brand">
+                <option value="">All</option>
+                {%- for b_handle in brand_handles -%}
+                  {%- unless b_handle == '' -%}
+                    {%- assign brand_label = b_handle | replace: '-', ' ' | upcase -%}
+                    <option value="{{ b_handle }}">{{ brand_label }}</option>
+                  {%- endunless -%}
+                {%- endfor -%}
+              </select>
+            </div>
+          </div>
+        {%- endif -%}
+
+        {%- comment -%}
+          CPU and motherboard. Processor socket filter.
+        {%- endcomment -%}
+        {%- if section.settings.collection_type == 'cpu' or section.settings.collection_type == 'motherboard' -%}
+          {%- if socket_handles.size > 0 -%}
+            <div class="upl-product-filters__group upl-product-filters__group--select">
+              <span class="upl-product-filters__label">Processor socket</span>
+              {%- assign selected_socket = '' -%}
+              {%- if use_default_socket -%}
+                {%- for s_handle in socket_handles -%}
+                  {%- unless s_handle == '' -%}
+                    {%- assign token = ',' | append: s_handle | append: ',' -%}
+                    {%- if default_socket_csv contains token -%}
+                      {%- assign selected_socket = s_handle -%}
+                      {%- break -%}
+                    {%- endif -%}
+                  {%- endunless -%}
+                {%- endfor -%}
+              {%- endif -%}
+              <div class="upl-product-filters__controls">
+                <select class="upl-product-filters__select" data-filter-key="socket">
+                  <option value="" {% if selected_socket == '' %}selected{% endif %}>All</option>
+                  {%- for s_handle in socket_handles -%}
+                    {%- unless s_handle == '' -%}
+                      {%- assign socket_label = s_handle | replace: '-', ' ' | upcase -%}
+                      <option value="{{ s_handle }}" {% if selected_socket == s_handle %}selected{% endif %}>{{ socket_label }}</option>
+                    {%- endunless -%}
+                  {%- endfor -%}
+                </select>
+              </div>
+            </div>
+          {%- endif -%}
+        {%- endif -%}
+
+        {%- comment -%}
+          Motherboard. Form factor filter.
+        {%- endcomment -%}
+        {%- if section.settings.collection_type == 'motherboard' and form_factor_handles.size > 0 -%}
+          <div class="upl-product-filters__group upl-product-filters__group--select">
+            <span class="upl-product-filters__label">Form factor</span>
+            {%- assign selected_form_factor = '' -%}
+            {%- if use_default_form_factor -%}
+              {%- for ff_handle in form_factor_handles -%}
+                {%- unless ff_handle == '' -%}
+                  {%- assign token = ',' | append: ff_handle | append: ',' -%}
+                  {%- if default_form_factor_csv contains token -%}
+                    {%- assign selected_form_factor = ff_handle -%}
+                    {%- break -%}
+                  {%- endif -%}
+                {%- endunless -%}
+              {%- endfor -%}
+            {%- endif -%}
+            <div class="upl-product-filters__controls">
+              <select class="upl-product-filters__select" data-filter-key="form-factor">
+                <option value="" {% if selected_form_factor == '' %}selected{% endif %}>All</option>
+                {%- for ff_handle in form_factor_handles -%}
+                  {%- unless ff_handle == '' -%}
+                    {%- assign ff_label = ff_handle | replace: '-', ' ' | upcase -%}
+                    <option value="{{ ff_handle }}" {% if selected_form_factor == ff_handle %}selected{% endif %}>{{ ff_label }}</option>
+                  {%- endunless -%}
+                {%- endfor -%}
+              </select>
+            </div>
+          </div>
+        {%- endif -%}
+
+        {%- comment -%}
+          GPU model filter.
+        {%- endcomment -%}
+        {%- if section.settings.collection_type == 'gpu' and gpu_handle_handles.size > 0 -%}
+          <div class="upl-product-filters__group upl-product-filters__group--select">
+            <span class="upl-product-filters__label">GPU model</span>
+            {%- assign selected_gpu = '' -%}
+            {%- if use_default_gpu -%}
+              {%- for g_handle in gpu_handle_handles -%}
+                {%- unless g_handle == '' -%}
+                  {%- assign token = ',' | append: g_handle | append: ',' -%}
+                  {%- if default_gpu_csv contains token -%}
+                    {%- assign selected_gpu = g_handle -%}
+                    {%- break -%}
+                  {%- endif -%}
+                {%- endunless -%}
+              {%- endfor -%}
+            {%- endif -%}
+            <div class="upl-product-filters__controls">
+              <select class="upl-product-filters__select" data-filter-key="gpu-handle">
+                <option value="" {% if selected_gpu == '' %}selected{% endif %}>All</option>
+                {%- for g_handle in gpu_handle_handles -%}
+                  {%- unless g_handle == '' -%}
+                    {%- assign g_label = g_handle | replace: '-', ' ' | upcase -%}
+                    <option value="{{ g_handle }}" {% if selected_gpu == g_handle %}selected{% endif %}>{{ g_label }}</option>
+                  {%- endunless -%}
+                {%- endfor -%}
+              </select>
+            </div>
+          </div>
+        {%- endif -%}
+
+        {%- comment -%}
+          RAM. Memory technology filter.
+        {%- endcomment -%}
+        {%- if section.settings.collection_type == 'ram' and mem_tech_handles.size > 0 -%}
+          <div class="upl-product-filters__group upl-product-filters__group--select">
+            <span class="upl-product-filters__label">Memory technology</span>
+            {%- assign selected_mem_tech = '' -%}
+            {%- if use_default_mem_tech -%}
+              {%- for mt_handle in mem_tech_handles -%}
+                {%- unless mt_handle == '' -%}
+                  {%- assign token = ',' | append: mt_handle | append: ',' -%}
+                  {%- if default_mem_tech_csv contains token -%}
+                    {%- assign selected_mem_tech = mt_handle -%}
+                    {%- break -%}
+                  {%- endif -%}
+                {%- endunless -%}
+              {%- endfor -%}
+            {%- endif -%}
+            <div class="upl-product-filters__controls">
+              <select class="upl-product-filters__select" data-filter-key="memory-tech">
+                <option value="" {% if selected_mem_tech == '' %}selected{% endif %}>All</option>
+                {%- for mt_handle in mem_tech_handles -%}
+                  {%- unless mt_handle == '' -%}
+                    {%- assign mt_label = mt_handle | replace: '-', ' ' | upcase -%}
+                    <option value="{{ mt_handle }}" {% if selected_mem_tech == mt_handle %}selected{% endif %}>{{ mt_label }}</option>
+                  {%- endunless -%}
+                {%- endfor -%}
+              </select>
+            </div>
+          </div>
+        {%- endif -%}
+
+        {%- comment -%}
+          CPU cooler. Cooler type filter.
+        {%- endcomment -%}
+        {%- if section.settings.collection_type == 'cooler' and cooler_type_handles.size > 0 -%}
+          <div class="upl-product-filters__group upl-product-filters__group--select">
+            <span class="upl-product-filters__label">Cooler type</span>
+            <div class="upl-product-filters__controls">
+              <select class="upl-product-filters__select" data-filter-key="cooler-type">
+                <option value="">All</option>
+                {%- for ct_handle in cooler_type_handles -%}
+                  {%- unless ct_handle == '' -%}
+                    {%- if ct_handle == 'aio-cooler' -%}
+                      {%- assign ct_label = 'AIO Cooler' -%}
+                    {%- elsif ct_handle == 'air-cooler' -%}
+                      {%- assign ct_label = 'Air Cooler' -%}
+                    {%- else -%}
+                      {%- assign ct_label = ct_handle | replace: '-', ' ' | capitalize -%}
+                    {%- endif -%}
+                    <option value="{{ ct_handle }}">{{ ct_label }}</option>
+                  {%- endunless -%}
+                {%- endfor -%}
+              </select>
+            </div>
+          </div>
+        {%- endif -%}
+
+        {%- comment -%}
+          PSU. Watts and certification filters.
+        {%- endcomment -%}
+        {%- if section.settings.collection_type == 'psu' -%}
+          {%- if watts_handles.size > 0 -%}
+            <div class="upl-product-filters__group upl-product-filters__group--select">
+              <span class="upl-product-filters__label">Watts</span>
+              {%- assign selected_watts = '' -%}
+              {%- if use_default_watts -%}
+                {%- for w_handle in watts_handles -%}
+                  {%- unless w_handle == '' -%}
+                    {%- assign token = ',' | append: w_handle | append: ',' -%}
+                    {%- if default_watts_csv contains token -%}
+                      {%- assign selected_watts = w_handle -%}
+                      {%- break -%}
+                    {%- endif -%}
+                  {%- endunless -%}
+                {%- endfor -%}
+              {%- endif -%}
+              <div class="upl-product-filters__controls">
+                <select class="upl-product-filters__select" data-filter-key="watts">
+                  <option value="" {% if selected_watts == '' %}selected{% endif %}>All</option>
+                  {%- for w_handle in watts_handles -%}
+                    {%- unless w_handle == '' -%}
+                      {%- assign w_label = w_handle | upcase -%}
+                      <option value="{{ w_handle }}" {% if selected_watts == w_handle %}selected{% endif %}>{{ w_label }}</option>
+                    {%- endunless -%}
+                  {%- endfor -%}
+                </select>
+              </div>
+            </div>
+          {%- endif -%}
+
+          {%- if cert_handles.size > 0 -%}
+            <div class="upl-product-filters__group upl-product-filters__group--select">
+              <span class="upl-product-filters__label">Certification</span>
+              {%- assign selected_cert = '' -%}
+              {%- if use_default_cert -%}
+                {%- for c_handle in cert_handles -%}
+                  {%- unless c_handle == '' -%}
+                    {%- assign token = ',' | append: c_handle | append: ',' -%}
+                    {%- if default_cert_csv contains token -%}
+                      {%- assign selected_cert = c_handle -%}
+                      {%- break -%}
+                    {%- endif -%}
+                  {%- endunless -%}
+                {%- endfor -%}
+              {%- endif -%}
+              <div class="upl-product-filters__controls">
+                <select class="upl-product-filters__select" data-filter-key="cert">
+                  <option value="" {% if selected_cert == '' %}selected{% endif %}>All</option>
+                  {%- for c_handle in cert_handles -%}
+                    {%- unless c_handle == '' -%}
+                      {%- assign c_label = c_handle | replace: '-', ' ' | upcase -%}
+                      <option value="{{ c_handle }}" {% if selected_cert == c_handle %}selected{% endif %}>{{ c_label }}</option>
+                    {%- endunless -%}
+                  {%- endfor -%}
+                </select>
+              </div>
+            </div>
+          {%- endif -%}
+        {%- endif -%}
+
+        {%- comment -%}
+          SSD. Device interface and PCIe generation filters.
+        {%- endcomment -%}
+        {%- if section.settings.collection_type == 'ssd' -%}
+          {%- if dev_interface_handles.size > 0 -%}
+            <div class="upl-product-filters__group upl-product-filters__group--select">
+              <span class="upl-product-filters__label">Device interface</span>
+              {%- assign selected_dev_interface = '' -%}
+              {%- if use_default_dev_interface -%}
+                {%- for di_handle in dev_interface_handles -%}
+                  {%- unless di_handle == '' -%}
+                    {%- assign token = ',' | append: di_handle | append: ',' -%}
+                    {%- if default_dev_interface_csv contains token -%}
+                      {%- assign selected_dev_interface = di_handle -%}
+                      {%- break -%}
+                    {%- endif -%}
+                  {%- endunless -%}
+                {%- endfor -%}
+              {%- endif -%}
+              <div class="upl-product-filters__controls">
+                <select class="upl-product-filters__select" data-filter-key="device-interface">
+                  <option value="" {% if selected_dev_interface == '' %}selected{% endif %}>All</option>
+                  {%- for di_handle in dev_interface_handles -%}
+                    {%- unless di_handle == '' -%}
+                      {%- assign di_label = di_handle | replace: '-', ' ' | upcase -%}
+                      <option value="{{ di_handle }}" {% if selected_dev_interface == di_handle %}selected{% endif %}>{{ di_label }}</option>
+                    {%- endunless -%}
+                  {%- endfor -%}
+                </select>
+              </div>
+            </div>
+          {%- endif -%}
+
+          {%- if pcie_gen_handles.size > 0 -%}
+            <div class="upl-product-filters__group upl-product-filters__group--select">
+              <span class="upl-product-filters__label">PCIe generation</span>
+              {%- assign selected_pcie_gen = '' -%}
+              {%- if use_default_pcie_gen -%}
+                {%- for pg_handle in pcie_gen_handles -%}
+                  {%- unless pg_handle == '' -%}
+                    {%- assign token = ',' | append: pg_handle | append: ',' -%}
+                    {%- if default_pcie_gen_csv contains token -%}
+                      {%- assign selected_pcie_gen = pg_handle -%}
+                      {%- break -%}
+                    {%- endif -%}
+                  {%- endunless -%}
+                {%- endfor -%}
+              {%- endif -%}
+              <div class="upl-product-filters__controls">
+                <select class="upl-product-filters__select" data-filter-key="pcie-generation">
+                  <option value="" {% if selected_pcie_gen == '' %}selected{% endif %}>All</option>
+                  {%- for pg_handle in pcie_gen_handles -%}
+                    {%- unless pg_handle == '' -%}
+                      {%- assign pg_label = pg_handle | replace: '-', ' ' | upcase -%}
+                      <option value="{{ pg_handle }}" {% if selected_pcie_gen == pg_handle %}selected{% endif %}>{{ pg_label }}</option>
+                    {%- endunless -%}
+                  {%- endfor -%}
+                </select>
+              </div>
+            </div>
+          {%- endif -%}
+        {%- endif -%}
+      </div>
+    </div>
+  {%- endif -%}
+
+  <div class="section-resource-list__header">
+    {%- content_for 'block', type: '_product-list-content', id: 'static-header' -%}
+  </div>
+
+  {%- comment -%}
+    Capture list_items so we can reuse it for grid and carousel layouts.
+  {%- endcomment -%}
+  {% capture list_items %}
+    {% if collection_products != null %}
+      {% for product in collection_products limit: product_limit %}
+        {%- liquid
+          comment
+            Build per product data attributes for filtering.
+          endcomment
+          assign brand_meta = product.metafields.relations.brand.value
+          if brand_meta != blank
+            assign item_brand_handle = brand_meta.brand_handle | default: brand_meta.name | handleize
+          else
+            assign item_brand_handle = product.vendor | handleize
+          endif
+
+          assign data_socket = ''
+          assign data_form_factor = ''
+          assign data_gpu_handle = ''
+          assign data_memory_tech = ''
+          assign data_cooler_type = ''
+          assign data_watts = ''
+          assign data_cert = ''
+          assign data_dev_interface = ''
+          assign data_pcie_gen = ''
+
+          if section.settings.collection_type == 'cpu' or section.settings.collection_type == 'motherboard'
+            assign socket_meta = product.metafields.shopify['processor-socket']
+            if socket_meta and socket_meta.value != blank
+              assign first_socket = socket_meta.value | first
+              assign socket_label = first_socket.label | default: first_socket.value | default: first_socket.name | default: first_socket
+              assign data_socket = socket_label | handleize
+            endif
+          endif
+
+          if section.settings.collection_type == 'motherboard'
+            assign ff_meta = product.metafields.shopify['motherboard-form-factor']
+            if ff_meta and ff_meta.value != blank
+              assign ff_first = ff_meta.value | first
+              assign ff_name = ff_first.label | default: ff_first.name | default: ff_first.title | default: ff_first.value | default: ff_first
+              assign data_form_factor = ff_name | handleize
+            endif
+          endif
+
+          if section.settings.collection_type == 'gpu'
+            assign gh = product.metafields.custom.bench_gpu_handle | default: ''
+            if gh != ''
+              assign data_gpu_handle = gh | handleize
+            endif
+          endif
+
+          if section.settings.collection_type == 'ram'
+            assign mem_meta = product.metafields.shopify['memory-technology']
+            if mem_meta and mem_meta.value != blank
+              assign mt_first = mem_meta.value | first
+              assign mt_name = mt_first.label | default: mt_first.name | default: mt_first.title | default: mt_first.value | default: mt_first
+              assign data_memory_tech = mt_name | handleize
+            endif
+          endif
+
+          if section.settings.collection_type == 'cooler'
+            assign ct = product.metafields.custom.cpu_cooler_type | default: product.metafields.custom.cpu_cooler_types | default: ''
+            if ct != ''
+              assign data_cooler_type = ct | handleize
+            endif
+          endif
+
+          if section.settings.collection_type == 'psu'
+            assign wv = product.metafields.custom.watts | default: ''
+            if wv != ''
+              assign data_watts = wv | handleize
+            endif
+            assign cv = product.metafields.custom.certification | default: ''
+            if cv != ''
+              assign data_cert = cv | handleize
+            endif
+          endif
+
+          if section.settings.collection_type == 'ssd'
+            assign dev_meta2 = product.metafields.shopify['device-interface']
+            if dev_meta2 and dev_meta2.value != blank
+              assign di_first = dev_meta2.value | first
+              assign di_name = di_first.label | default: di_first.name | default: di_first.title | default: di_first.value | default: di_first
+              assign data_dev_interface = di_name | handleize
+            endif
+
+            assign pgv = product.metafields.custom.pcie_generation | default: ''
+            if pgv != ''
+              assign data_pcie_gen = pgv | handleize
+            endif
+          endif
+        -%}
+
+        <div
+          class="resource-list__item"
+          data-product-item
+          data-price="{{ product.price | default: 0 }}"
+          data-brand="{{ item_brand_handle }}"
+          {% if product.available %}
+            data-availability="in-stock"
+          {% else %}
+            data-availability="out-of-stock"
+          {% endif %}
+          {% if data_socket != '' %}data-socket="{{ data_socket }}"{% endif %}
+          {% if data_form_factor != '' %}data-form-factor="{{ data_form_factor }}"{% endif %}
+          {% if data_gpu_handle != '' %}data-gpu-handle="{{ data_gpu_handle }}"{% endif %}
+          {% if data_memory_tech != '' %}data-memory-tech="{{ data_memory_tech }}"{% endif %}
+          {% if data_cooler_type != '' %}data-cooler-type="{{ data_cooler_type }}"{% endif %}
+          {% if data_watts != '' %}data-watts="{{ data_watts }}"{% endif %}
+          {% if data_cert != '' %}data-cert="{{ data_cert }}"{% endif %}
+          {% if data_dev_interface != '' %}data-device-interface="{{ data_dev_interface }}"{% endif %}
+          {% if data_pcie_gen != '' %}data-pcie-generation="{{ data_pcie_gen }}"{% endif %}
+        >
+          {% # theme-check-disable UniqueStaticBlockId %}
+            {% content_for 'block', type: '_product-card', id: 'static-product-card', closest.product: product %}
+          {% # theme-check-enable UniqueStaticBlockId %}
+        </div>
+
+        {% unless forloop.last %}
+          <!--@list/split-->
+        {% endunless %}
+      {% endfor %}
+    {% else %}
+      {% for i in (1..max_items) %}
+        <div class="resource-list__item">
+          {% # theme-check-disable UniqueStaticBlockId %}
+            {% content_for 'block', type: '_product-card', id: 'static-product-card', closest.product: null %}
+          {% # theme-check-enable UniqueStaticBlockId %}
+        </div>
+
+        {% unless forloop.last %}
+          <!--@list/split-->
+        {% endunless %}
+      {% endfor %}
+    {% endif %}
+  {% endcapture %}
+
+  {% liquid
+    assign list_items_array = list_items | strip | split: '<!--@list/split-->'
+  %}
+
+  {%- comment -%}
+    Layout switch.
+    - Grid. use theme resource-list.
+    - Carousel. custom horizontal track so filters and sorting do not break layout.
+  {%- endcomment -%}
+  {% if section.settings.layout_type == 'carousel' %}
+    <div class="upl-carousel" data-upl-carousel>
+      <button
+        type="button"
+        class="upl-carousel__nav upl-carousel__nav--prev"
+        aria-label="Previous"
+      >
+        ‹
+      </button>
+      <div class="upl-carousel__track" data-upl-carousel-track>
+        {% for item in list_items_array %}
+          {{ item }}
+        {% endfor %}
+      </div>
+      <button
+        type="button"
+        class="upl-carousel__nav upl-carousel__nav--next"
+        aria-label="Next"
+      >
+        ›
+      </button>
+    </div>
+  {% else %}
+    {% render 'resource-list',
+      list_items: list_items,
+      list_items_array: list_items_array,
+      settings: section.settings,
+      slide_count: product_limit,
+      content_type: 'products',
+      test_id: 'resource-list-grid'
+    %}
+  {% endif %}
+
+  <div
+    class="section-resource-list__content"
+    style="--horizontal-alignment: {{ section.settings.horizontal_alignment }};"
+  >
+    {%- content_for 'blocks' -%}
+  </div>
+</div>
+
+<script>
+  (function() {
+    const sectionEl = document.getElementById('product-list-{{ section.id }}');
+    if (!sectionEl) return;
+
+    const sortButtons = sectionEl.querySelectorAll('.upl-product-filters__sort-btn');
+    const filterInputs = sectionEl.querySelectorAll('[data-filter-key]');
+
+    const items = Array.from(sectionEl.querySelectorAll('.resource-list__item[data-product-item]'));
+    if (!items.length) return;
+
+    const carouselTrack = sectionEl.querySelector('[data-upl-carousel-track]');
+    const itemsContainer = carouselTrack || items[0].parentElement;
+
+    const prevBtn = sectionEl.querySelector('.upl-carousel__nav--prev');
+    const nextBtn = sectionEl.querySelector('.upl-carousel__nav--next');
+
+    items.forEach((item, index) => {
+      item.dataset.originalOrder = index.toString();
+    });
+
+    function getActiveSort() {
+      const activeBtn = sectionEl.querySelector('.upl-product-filters__sort-btn.is-active');
+      return activeBtn ? activeBtn.dataset.sort : 'lowest';
+    }
+
+    function getFiltersBundle() {
+      const groups = {};
+
+      filterInputs.forEach(input => {
+        const key = input.dataset.filterKey;
+        if (!groups[key]) {
+          groups[key] = { values: [], hasCheckbox: false, hasSelect: false };
+        }
+
+        if (input.tagName === 'SELECT') {
+          groups[key].hasSelect = true;
+          if (input.value) groups[key].values.push(input.value);
+          return;
+        }
+
+        groups[key].hasCheckbox = true;
+        if (input.checked) groups[key].values.push(input.value);
+      });
+
+      return groups;
+    }
+
+    function itemPassesFilters(item, groups) {
+      for (const key in groups) {
+        const group = groups[key];
+        const values = group.values || [];
+
+        if (!values.length) {
+          if (group.hasCheckbox && !group.hasSelect) return false;
+          continue;
+        }
+
+        const attrName = 'data-' + key;
+        const itemValue = (item.getAttribute(attrName) || '').trim();
+        if (!itemValue || values.indexOf(itemValue) === -1) return false;
+      }
+      return true;
+    }
+
+    function applyFilters() {
+      const sortDir = getActiveSort();
+      const bundle = getFiltersBundle();
+
+      const visibleItems = [];
+      const hiddenItems = [];
+
+      items.forEach(item => {
+        const passes = itemPassesFilters(item, bundle);
+        if (passes) {
+          item.style.display = '';
+          visibleItems.push(item);
+        } else {
+          item.style.display = 'none';
+          hiddenItems.push(item);
+        }
+      });
+
+      visibleItems.sort((a, b) => {
+        const priceA = parseInt(a.getAttribute('data-price') || '0', 10);
+        const priceB = parseInt(b.getAttribute('data-price') || '0', 10);
+
+        if (priceA === priceB) {
+          const oa = parseInt(a.dataset.originalOrder || '0', 10);
+          const ob = parseInt(b.dataset.originalOrder || '0', 10);
+          return oa - ob;
+        }
+
+        if (sortDir === 'highest') return priceB - priceA;
+        return priceA - priceB;
+      });
+
+      const orderedItems = visibleItems.concat(hiddenItems);
+
+      orderedItems.forEach((item, index) => {
+        item.style.order = index.toString();
+        itemsContainer.appendChild(item);
+      });
+
+      if (itemsContainer.scrollTo) {
+        itemsContainer.scrollTo({ left: 0, behavior: 'auto' });
+      } else {
+        itemsContainer.scrollLeft = 0;
+      }
+    }
+
+    sortButtons.forEach(btn => {
+      btn.addEventListener('click', function() {
+        sortButtons.forEach(b => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        applyFilters();
+      });
+    });
+
+    filterInputs.forEach(input => {
+      input.addEventListener('change', applyFilters);
+    });
+
+    if (carouselTrack && prevBtn && nextBtn) {
+      const scrollAmount = () => carouselTrack.clientWidth * 0.8;
+
+      prevBtn.addEventListener('click', function() {
+        carouselTrack.scrollBy({ left: -scrollAmount(), behavior: 'smooth' });
+      });
+
+      nextBtn.addEventListener('click', function() {
+        carouselTrack.scrollBy({ left: scrollAmount(), behavior: 'smooth' });
+      });
+    }
+
+    applyFilters();
+  })();
+</script>
+
+<style>
+  /* Card image controls */
+  #product-list-{{ section.id }} {
+    --upl-card-image-scale: {{ section.settings.card_image_scale | default: 100 | divided_by: 100.0 }};
+    --upl-card-image-max-h-mobile: {{ section.settings.card_image_max_height_mobile | default: 180 }}px;
+    --upl-card-image-max-h-desktop: {{ section.settings.card_image_max_height_desktop | default: 240 }}px;
+  }
+
+  /* Try to target common product card media patterns without breaking other UI */
+  #product-list-{{ section.id }} .resource-list__item .card__media img,
+  #product-list-{{ section.id }} .resource-list__item .product-card__media img,
+  #product-list-{{ section.id }} .resource-list__item .media img {
+    max-height: var(--upl-card-image-max-h-mobile);
+    width: auto;
+    height: auto;
+    transform: scale(var(--upl-card-image-scale));
+    transform-origin: center;
+  }
+
+  @media (min-width: 750px) {
+    #product-list-{{ section.id }} .resource-list__item .card__media img,
+    #product-list-{{ section.id }} .resource-list__item .product-card__media img,
+    #product-list-{{ section.id }} .resource-list__item .media img {
+      max-height: var(--upl-card-image-max-h-desktop);
+    }
+  }
+
+  /* Filter bar layout and styles */
+  .upl-product-filters {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-block-end: 0.75rem;
+  }
+
+  .upl-product-filters__row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    align-items: flex-start;
+  }
+
+  .upl-product-filters__group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+  }
+
+  .upl-product-filters__group--sort {
+    min-width: 180px;
+  }
+
+  .upl-product-filters__label {
+    font-weight: 600;
+  }
+
+  .upl-product-filters__controls {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .upl-product-filters__controls--wrap {
+    max-width: 640px;
+  }
+
+  .upl-product-filters__sort-btn {
+    border-radius: 999px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    padding: 0.25rem 0.75rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    background: #fff;
+    white-space: nowrap;
+  }
+
+  .color-scheme-2 .upl-product-filters__sort-btn,
+  .color-scheme-3 .upl-product-filters__sort-btn {
+    background: transparent;
+  }
+
+  .upl-product-filters__sort-btn.is-active {
+    border-color: rgba(0, 0, 0, 0.8);
+  }
+
+  .upl-product-filters__select {
+    border-radius: 999px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    padding: 0.3rem 0.75rem;
+    font-size: 0.8rem;
+    background: #fff;
+    min-height: 2rem;
+  }
+
+  .color-scheme-2 .upl-product-filters__select,
+  .color-scheme-3 .upl-product-filters__select {
+    background: transparent;
+  }
+
+  .upl-product-filters__checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-inline-end: 0.75rem;
+    margin-block-end: 0.25rem;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .upl-product-filters__checkbox input[type='checkbox'] {
+    accent-color: currentColor;
+  }
+
+  @media (max-width: 749px) {
+    .upl-product-filters__row {
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: flex-start;
+    }
+
+    .upl-product-filters__group--sort,
+    .upl-product-filters__group--availability {
+      flex: 1 1 100%;
+    }
+
+    .upl-product-filters__group--select {
+      flex: 1 1 calc(50% - 0.75rem);
+      max-width: calc(50% - 0.75rem);
+    }
+
+    .upl-product-filters__group--select .upl-product-filters__controls {
+      width: 100%;
+    }
+
+    .upl-product-filters__select {
+      width: 100%;
+    }
+  }
+
+  /* Carousel layout */
+  #product-list-{{ section.id }} .upl-carousel__track {
+    --upl-mobile-card-width: {% if section.settings.mobile_card_size == '44cqw' %}60%{% else %}90%{% endif %};
+    --upl-desktop-card-width: calc(100% / {{ section.settings.columns | default: 4 }});
+  }
+
+  .upl-carousel {
+    position: relative;
+  }
+
+  .upl-carousel__track {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    gap: 0.75rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .upl-carousel__track .resource-list__item {
+    flex: 0 0 var(--upl-mobile-card-width);
+    scroll-snap-align: start;
+  }
+
+  @media (min-width: 750px) {
+    .upl-carousel__track .resource-list__item {
+      flex: 0 0 var(--upl-desktop-card-width);
+      max-width: var(--upl-desktop-card-width);
+    }
+  }
+
+  .upl-carousel__nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    border: none;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    z-index: 2;
+  }
+
+  .upl-carousel__nav--prev {
+    left: 0.25rem;
+  }
+
+  .upl-carousel__nav--next {
+    right: 0.25rem;
+  }
+
+  @media (max-width: 749px) {
+    .upl-carousel__nav {
+      display: none;
+    }
+  }
+</style>
+
+<script src="{{ 'ucp-bundle-price-hint-autorefresh.js' | asset_url }}" defer></script>
+<script src="{{ 'ucp-source-tracker.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Uncapped PL2",
+  "class": "ui-test-product-list",
+  "blocks": [
+    { "type": "@theme" },
+    { "type": "@app" },
+    { "type": "_divider" }
+  ],
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [
+    { "type": "collection", "id": "collection", "label": "Collection" },
+
+    {
+      "type": "select",
+      "id": "collection_type",
+      "label": "Collection type (extra filters)",
+      "options": [
+        { "value": "generic", "label": "Generic / all products" },
+        { "value": "cpu", "label": "CPU" },
+        { "value": "motherboard", "label": "Motherboard" },
+        { "value": "gpu", "label": "GPU" },
+        { "value": "ram", "label": "RAM" },
+        { "value": "cooler", "label": "CPU Cooler" },
+        { "value": "psu", "label": "Power supply (PSU)" },
+        { "value": "ssd", "label": "SSD / storage" }
+      ],
+      "default": "generic"
+    },
+
+    {
+      "type": "checkbox",
+      "id": "show_filters",
+      "label": "Show price & brand filters",
+      "default": true
+    },
+
+    {
+      "type": "header",
+      "content": "Card image"
+    },
+    {
+      "type": "range",
+      "id": "card_image_scale",
+      "label": "Image scale",
+      "min": 60,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 100
+    },
+    {
+      "type": "range",
+      "id": "card_image_max_height_mobile",
+      "label": "Image max height (mobile)",
+      "min": 60,
+      "max": 320,
+      "step": 10,
+      "unit": "px",
+      "default": 180
+    },
+    {
+      "type": "range",
+      "id": "card_image_max_height_desktop",
+      "label": "Image max height (desktop)",
+      "min": 80,
+      "max": 420,
+      "step": 10,
+      "unit": "px",
+      "default": 240
+    },
+
+    {
+      "type": "header",
+      "content": "Default filter state"
+    },
+    {
+      "type": "select",
+      "id": "default_sort",
+      "label": "Default sort",
+      "options": [
+        { "value": "lowest", "label": "Lowest" },
+        { "value": "highest", "label": "Highest" }
+      ],
+      "default": "lowest"
+    },
+    {
+      "type": "checkbox",
+      "id": "default_in_stock_checked",
+      "label": "Default. In stock checked",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "default_out_of_stock_checked",
+      "label": "Default. Out of stock checked",
+      "default": false
+    },
+    {
+      "type": "paragraph",
+      "content": "Defaults below are comma-separated handles. Leave blank to check all values in that group."
+    },
+{
+  "type": "text",
+  "id": "default_socket_handles",
+  "label": "Default checked sockets",
+  "default": "AM5"
+},
+{
+  "type": "text",
+  "id": "default_form_factor_handles",
+  "label": "Default checked form factors",
+  "default": "Matx"
+},
+{
+  "type": "text",
+  "id": "default_gpu_handles",
+  "label": "Default checked GPU handles",
+  "default": "rtx 5070 ti"
+},
+{
+  "type": "text",
+  "id": "default_mem_tech_handles",
+  "label": "Default checked memory tech",
+  "default": "ddr5"
+},
+{
+  "type": "text",
+  "id": "default_watts_handles",
+  "label": "Default checked watts",
+  "default": "all"
+},
+{
+  "type": "text",
+  "id": "default_cert_handles",
+  "label": "Default checked PSU certs",
+  "default": "all"
+},
+{
+  "type": "text",
+  "id": "default_device_interface_handles",
+  "label": "Default checked SSD device interface",
+  "default": "gen 5"
+},
+{
+  "type": "text",
+  "id": "default_pcie_generation_handles",
+  "label": "Default checked SSD PCIe generation",
+  "default": "gen 5"
+},
+    {
+      "type": "checkbox",
+      "id": "show_all_products_from_collection",
+      "label": "Show all products from collection",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "layout_type",
+      "label": "Layout type",
+      "options": [
+        { "value": "grid", "label": "Grid" },
+        { "value": "carousel", "label": "Carousel" },
+        { "value": "editorial", "label": "Editorial" }
+      ],
+      "default": "grid"
+    },
+    {
+      "type": "checkbox",
+      "id": "carousel_on_mobile",
+      "label": "Use carousel on mobile (when layout is grid)",
+      "default": false,
+      "visible_if": "{{ section.settings.layout_type != 'carousel' }}"
+    },
+    {
+      "type": "range",
+      "id": "max_products",
+      "label": "Max product count (when not showing all)",
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "default": 8
+    },
+    {
+      "type": "range",
+      "id": "columns",
+      "label": "Columns (also controls carousel card width on desktop)",
+      "min": 1,
+      "max": 8,
+      "step": 1,
+      "default": 4,
+      "visible_if": "{{ section.settings.layout_type != 'editorial' }}"
+    },
+    {
+      "type": "select",
+      "id": "mobile_columns",
+      "label": "Mobile columns (grid)",
+      "options": [
+        { "value": "1", "label": "1" },
+        { "value": "2", "label": "2" }
+      ],
+      "default": "2",
+      "visible_if": "{{ section.settings.layout_type == 'grid' and section.settings.carousel_on_mobile == false }}"
+    },
+    {
+      "type": "select",
+      "id": "mobile_card_size",
+      "label": "Mobile card size (carousel)",
+      "options": [
+        { "value": "60cqw", "label": "1 per view" },
+        { "value": "44cqw", "label": "2 per view" }
+      ],
+      "default": "60cqw",
+      "visible_if": "{{ section.settings.layout_type == 'carousel' or section.settings.carousel_on_mobile == true }}"
+    },
+    {
+      "type": "range",
+      "id": "columns_gap",
+      "label": "Horizontal gap",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 8,
+      "visible_if": "{{ section.settings.layout_type == 'grid' or section.settings.layout_type == 'carousel' }}"
+    },
+    {
+      "type": "range",
+      "id": "rows_gap",
+      "label": "Vertical gap (grid)",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 8,
+      "visible_if": "{{ section.settings.layout_type == 'grid'}}"
+    },
+    {
+      "type": "header",
+      "content": "Carousel navigation",
+      "visible_if": "{{ section.settings.layout_type == 'carousel' or section.settings.carousel_on_mobile == true }}"
+    },
+    {
+      "type": "select",
+      "id": "icons_style",
+      "label": "Icon style",
+      "options": [
+        { "value": "arrow", "label": "Arrows" },
+        { "value": "chevron", "label": "Chevrons" },
+        { "value": "arrows_large", "label": "Large arrows" },
+        { "value": "chevron_large", "label": "Large chevrons" },
+        { "value": "none", "label": "None" }
+      ],
+      "default": "arrow",
+      "visible_if": "{{ section.settings.layout_type == 'carousel' or section.settings.carousel_on_mobile == true }}"
+    },
+    {
+      "type": "select",
+      "id": "icons_shape",
+      "label": "Icon background",
+      "options": [
+        { "value": "none", "label": "None" },
+        { "value": "circle", "label": "Circle" },
+        { "value": "square", "label": "Square" }
+      ],
+      "default": "none",
+      "visible_if": "{{ section.settings.icons_style != 'none' and section.settings.layout_type == 'carousel' or section.settings.carousel_on_mobile == true }}"
+    },
+    {
+      "type": "header",
+      "content": "Section layout"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Width",
+      "options": [
+        { "value": "page-width", "label": "Page width" },
+        { "value": "full-width", "label": "Full width" }
+      ],
+      "default": "page-width"
+    },
+    {
+      "type": "select",
+      "id": "horizontal_alignment",
+      "label": "Horizontal alignment",
+      "options": [
+        { "value": "flex-start", "label": "Left" },
+        { "value": "center", "label": "Center" },
+        { "value": "flex-end", "label": "Right" }
+      ],
+      "default": "flex-start"
+    },
+    {
+      "type": "range",
+      "id": "gap",
+      "label": "Section gap",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "scheme-1"
+    },
+    {
+      "type": "header",
+      "content": "Section padding"
+    },
+    {
+      "type": "range",
+      "id": "padding-block-start",
+      "label": "Top padding",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "padding-block-end",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    }
+  ],
+  "presets": [
+    {
+      "name": "Uncapped PL2",
+      "category": "Products"
+    }
+  ]
+}
+{% endschema %}
+

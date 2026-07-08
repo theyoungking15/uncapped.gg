@@ -1,0 +1,1352 @@
+﻿{% if template.name == 'page'
+  and template.suffix == 'price-list'
+  and section.settings.enable_section %}
+
+  {% liquid
+    assign cart_cpu = ''
+    assign cart_gpu = ''
+    assign cart_cooler = ''
+
+    if cart and cart.item_count > 0
+      for li in cart.items
+        assign li_role = li.product.metafields.custom.bench_chip_role | default: '' | downcase
+
+        if cart_cpu == '' and li_role == 'cpu'
+          assign cart_cpu = li.product.metafields.custom.bench_cpu_handle | default: li.product.handle
+        elsif cart_gpu == '' and li_role == 'gpu'
+          assign cart_gpu = li.product.metafields.custom.bench_gpu_handle | default: li.product.handle
+        elsif cart_cooler == '' and li_role == 'cooler'
+          assign cart_cooler = li.product.metafields.custom.bench_cooler_handle | default: li.product.handle
+        endif
+      endfor
+    endif
+
+    assign lookup_cpu    = cart_cpu    | default: section.settings.fallback_cpu | strip | downcase
+    assign lookup_gpu    = cart_gpu    | default: section.settings.fallback_gpu | strip | downcase
+    assign lookup_cooler = cart_cooler | strip | downcase
+
+    assign base_cpu = lookup_cpu
+    assign base_gpu = lookup_gpu
+
+    assign res_opts    = section.settings.res_options    | default: '1080p,1440p' | split: ','
+    assign preset_opts = section.settings.preset_options | default: 'low,medium,high' | split: ','
+
+    assign chosen_res_raw    = cart.attributes.chosen_res    | default: section.settings.res    | strip | downcase
+    assign chosen_preset_raw = cart.attributes.chosen_preset | default: section.settings.preset | strip | downcase
+
+    assign chosen_res = ''
+    for r_ in res_opts
+      assign r = r_ | strip | downcase
+      if r == chosen_res_raw
+        assign chosen_res = r
+        break
+      endif
+    endfor
+    if chosen_res == ''
+      assign chosen_res = res_opts.first | strip | downcase
+    endif
+
+    assign chosen_preset = ''
+    for p_ in preset_opts
+      assign p = p_ | strip | downcase
+      if p == chosen_preset_raw
+        assign chosen_preset = p
+        break
+      endif
+    endfor
+    if chosen_preset == ''
+      assign chosen_preset = preset_opts.first | strip | downcase
+    endif
+
+    assign preset_down = chosen_preset | downcase
+
+    assign mo_bench = shop.metaobjects['benchmark_entry']
+    assign mo_cool  = shop.metaobjects['cooler_thermal_entry']
+    assign mo_games = shop.metaobjects['game']
+
+    assign games_array = ''
+    if section.settings.games_source == 'auto' and mo_bench and mo_bench.values and base_cpu != '' and base_gpu != ''
+      assign uniq = '||'
+      for v in mo_bench.values
+        assign gh = v.game_handle | default: '' | strip | downcase
+        assign ch = v.cpu_handle  | default: '' | strip | downcase
+        assign gp = v.gpu_handle  | default: '' | strip | downcase
+        if gh != '' and ch == base_cpu and gp == base_gpu
+          assign token = '||' | append: gh | append: '||'
+          unless uniq contains token
+            assign uniq = uniq | append: gh | append: '||'
+          endunless
+        endif
+      endfor
+      assign games_array = uniq | split: '||'
+    endif
+    if games_array == '' or games_array.size == 0
+      assign games_array = section.settings.games_csv | split: ','
+    endif
+
+    assign max_games = section.settings.max_games_display | default: 6 | plus: 0
+    if max_games < 1
+      assign max_games = 9999
+    endif
+
+    assign games_markup = ''
+    assign game_count   = 0
+
+    if base_cpu != '' and base_gpu != '' and mo_bench
+      for g_raw in games_array
+        assign g = g_raw | strip | downcase
+        if g == ''
+          continue
+        endif
+
+        if game_count >= max_games
+          break
+        endif
+
+        capture key_base
+          echo g
+          echo '-'
+          echo base_cpu
+          echo '-'
+          echo base_gpu
+          echo '-res-'
+          echo chosen_res
+          echo '-preset-'
+          echo chosen_preset
+        endcapture
+        assign key_base = key_base | strip
+        assign be_base = mo_bench[key_base]
+
+        if be_base == blank and mo_bench.values
+          for e in mo_bench.values
+            if e.system and e.system.handle == key_base
+              assign be_base = e
+              break
+            endif
+          endfor
+        endif
+
+        assign fps_base = ''
+        if be_base and be_base.fps_avg
+          assign fps_base = be_base.fps_avg | plus: 0
+        endif
+
+        assign label = g | replace: '-', ' ' | upcase
+
+        assign game_entry = blank
+        if mo_games and mo_games[g]
+          assign game_entry = mo_games[g]
+        elsif mo_games and mo_games.values
+          for ge in mo_games.values
+            if ge.system and ge.system.handle == g
+              assign game_entry = ge
+              break
+            endif
+          endfor
+        endif
+
+        if game_entry and game_entry.name
+          assign label = game_entry.name
+        endif
+
+        assign game_logo = ''
+        if game_entry
+          if game_entry.icon
+            assign game_logo = game_entry.icon
+          elsif game_entry.logo_dark
+            assign game_logo = game_entry.logo_dark
+          elsif game_entry.logo_2
+            assign game_logo = game_entry.logo_2
+          elsif game_entry.logo
+            assign game_logo = game_entry.logo
+          endif
+        endif
+
+        capture chip
+          echo '<div class="ucp-chip ucp-chip--game">'
+          if game_logo != blank
+            echo '<img class="ucp-chip__img ucp-chip__img--game" loading="lazy" src="'
+            echo game_logo | image_url: width: 96
+            echo '" alt="'
+            echo label | escape
+            echo '">'
+          else
+            echo '<span class="ucp-chip__label">'
+            echo label
+            echo '</span>'
+          endif
+          echo '<span class="ucp-chip__value">'
+          if fps_base != ''
+            echo fps_base
+            echo ' FPS'
+          else
+            echo 'n/a'
+          endif
+          echo '</span></div>'
+        endcapture
+
+        if games_markup == ''
+          assign games_markup = chip
+        else
+          assign games_markup = games_markup | append: chip
+        endif
+
+        assign game_count = game_count | plus: 1
+      endfor
+    endif
+
+    assign cpu_display = ''
+    if base_cpu != ''
+      assign cpu_prod = all_products[base_cpu]
+      if cpu_prod and cpu_prod.title != blank
+        assign cpu_display = cpu_prod.title
+      else
+        assign cpu_display = base_cpu | replace: '-', ' ' | upcase
+      endif
+    endif
+
+    assign gpu_display = ''
+    if base_gpu != ''
+      assign gpu_prod = all_products[base_gpu]
+      if gpu_prod and gpu_prod.title != blank
+        assign gpu_display = gpu_prod.title
+      else
+        assign gpu_display = base_gpu | replace: '-', ' ' | upcase
+      endif
+    endif
+
+    assign full_load_cpu_name    = ''
+    assign full_load_cooler_name = ''
+    assign full_load_temp        = ''
+
+    if lookup_cpu != ''
+      assign cpu_prod2 = all_products[lookup_cpu]
+      if cpu_prod2 and cpu_prod2.title != blank
+        assign full_load_cpu_name = cpu_prod2.title
+      else
+        assign full_load_cpu_name = lookup_cpu | replace: '-', ' ' | upcase
+      endif
+    endif
+
+    if lookup_cooler != ''
+      assign cooler_prod2 = all_products[lookup_cooler]
+      if cooler_prod2 and cooler_prod2.title != blank
+        assign full_load_cooler_name = cooler_prod2.title
+      else
+        assign full_load_cooler_name = lookup_cooler | replace: '-', ' ' | upcase
+      endif
+    endif
+
+    if mo_cool and lookup_cpu != '' and lookup_cooler != ''
+      capture comb
+        echo lookup_cpu
+        echo '-'
+        echo lookup_cooler
+      endcapture
+      assign comb = comb | strip
+      assign ce = mo_cool[comb]
+
+      if ce == blank and mo_cool.values
+        for v in mo_cool.values
+          if v.system and v.system.handle == comb
+            assign ce = v
+            break
+          endif
+        endfor
+      endif
+
+      if ce and ce.temp_full_load_c
+        assign full_load_temp = ce.temp_full_load_c
+      endif
+    endif
+
+    assign combo_total_attr = cart.attributes.ucp_combo_total
+    if combo_total_attr != blank
+      assign total_money = combo_total_attr | plus: 0 | money
+    else
+      assign total_money = cart.total_price | money
+    endif
+  %}
+
+  <style>
+    #ucp-sticky-preview-{{ section.id }} {
+      position: fixed;
+      inset-inline: 0;
+      bottom: 0;
+      z-index: 20;
+      display: flex;
+      justify-content: center;
+      padding: 0 16px calc(16px + env(safe-area-inset-bottom));
+      box-sizing: border-box;
+      color: rgb(var(--color-foreground));
+      visibility: hidden;
+      opacity: 0;
+      transform: translateY(calc(100% + 18px));
+      transition: opacity 0.18s ease-out, transform 0.18s ease-out, visibility 0.18s ease-out;
+      pointer-events: none;
+    }
+    #ucp-sticky-preview-{{ section.id }}.is-visible {
+      visibility: visible;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__dock {
+      width: min(1400px, 100%);
+      background: rgba(255, 255, 255, 0.98);
+      border: 1px solid rgba(var(--color-foreground), 0.12);
+      border-radius: 18px;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.14);
+      backdrop-filter: blur(10px);
+      overflow: hidden;
+      pointer-events: auto;
+    }
+
+    #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__handle {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 11px 16px;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 0.86rem;
+      font-weight: 600;
+      background: linear-gradient(180deg, rgba(var(--color-foreground), 0.035), rgba(var(--color-foreground), 0.02));
+      border: 0;
+      border-bottom: 1px solid rgba(var(--color-foreground), 0.08);
+      cursor: pointer;
+    }
+    #ucp-sticky-preview-{{ section.id }}.is-collapsed .ucp-sticky-preview__handle {
+      border-bottom: 0;
+    }
+    #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__handle-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__handle-icon {
+      font-size: 0.95rem;
+      line-height: 1;
+      transition: transform 0.14s ease-out;
+      transform: rotate(180deg);
+    }
+    #ucp-sticky-preview-{{ section.id }}.is-collapsed .ucp-sticky-preview__handle-icon {
+      transform: rotate(0deg);
+    }
+
+    #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__shell {
+      width: 100%;
+    }
+    #ucp-sticky-preview-{{ section.id }}.is-collapsed .ucp-sticky-preview__shell {
+      display: none;
+    }
+
+    #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__inner {
+      display: grid;
+      grid-template-columns: minmax(0, 1.75fr) minmax(240px, 1fr) minmax(180px, 0.78fr);
+      gap: 16px;
+      align-items: stretch;
+      padding-inline: 16px;
+      padding-block: {{ section.settings.pt }}rem {{ section.settings.pb }}rem;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 0.9rem;
+    }
+    #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__col {
+      min-width: 0;
+      display: grid;
+      align-content: start;
+      gap: 10px;
+    }
+    #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__col--cooler,
+    #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__col--total {
+      border-inline-start: 1px solid rgba(var(--color-foreground), 0.08);
+      padding-inline-start: 16px;
+    }
+    #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__col--total {
+      text-align: right;
+      align-content: center;
+    }
+    #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__label {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      opacity: 0.65;
+      white-space: nowrap;
+    }
+    #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__label--inline {
+      font-size: 11px;
+      opacity: 0.72;
+    }
+    #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      min-width: 0;
+    }
+    #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__build-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 12px;
+      align-items: center;
+      min-width: 0;
+      font-size: 15px;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+    #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__build-item {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__build-item + .ucp-sticky-preview__build-item::before {
+      content: "\2022";
+      margin-inline-end: 12px;
+      color: rgba(var(--color-foreground), 0.35);
+    }
+    #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__controls-row {
+      gap: 12px 16px;
+    }
+
+    .ucp-pill-group {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-width: 0;
+    }
+    .ucp-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(var(--color-foreground), 0.14);
+      background: #ffffff;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+      color: rgb(var(--color-foreground));
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      transition: background 0.14s ease-out, color 0.14s ease-out, border-color 0.14s ease-out;
+    }
+    .ucp-pill.is-active {
+      background: #111111;
+      color: #ffffff;
+      border-color: #111111;
+      box-shadow: none;
+    }
+
+    .ucp-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.32rem;
+      min-height: 40px;
+      padding: 0 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(var(--color-foreground), 0.08);
+      background: rgba(var(--color-foreground), 0.04);
+      white-space: nowrap;
+      transition: background 0.14s ease-out, border-color 0.14s ease-out;
+    }
+    .ucp-chip__label {
+      opacity: 0.7;
+    }
+    .ucp-chip__value {
+      font-weight: 700;
+    }
+    .ucp-chip--game {
+      min-height: 44px;
+      padding-inline: 10px;
+    }
+    .ucp-chip__img--game {
+      display: block;
+      height: 1.1rem;
+      width: auto;
+      border-radius: 0.35rem;
+      object-fit: contain;
+    }
+
+    #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__games-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__row--games {
+      flex: 1 1 auto;
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 8px;
+      align-items: center;
+      min-width: 0;
+      overflow: hidden;
+    }
+    #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__empty {
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
+      padding: 0 12px;
+      border-radius: 14px;
+      background: rgba(var(--color-foreground), 0.04);
+      color: rgba(var(--color-foreground), 0.72);
+      font-size: 0.84rem;
+    }
+
+    .ucp-games-nav,
+    .ucp-sticky-nav__btn {
+      appearance: none;
+      -webkit-appearance: none;
+      border-radius: 999px;
+      border: 1px solid rgba(var(--color-foreground), 0.14);
+      background: #ffffff;
+      color: rgb(var(--color-foreground));
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: inherit;
+      font-size: 0.94rem;
+      font-weight: 700;
+      line-height: 1;
+      min-width: 36px;
+      min-height: 36px;
+      padding: 0;
+      transition: background 0.14s ease-out, border-color 0.14s ease-out;
+    }
+    .ucp-games-nav:disabled,
+    .ucp-sticky-nav__btn:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
+
+    #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__total-value {
+      font-size: 22px;
+      line-height: 1.1;
+      font-weight: 700;
+    }
+    #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__note {
+      font-size: 12px;
+      line-height: 1.35;
+      opacity: 0.72;
+    }
+
+    .ucp-sticky-preview__nav {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 0 16px 16px;
+    }
+    .ucp-sticky-nav__dots {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .ucp-sticky-nav__dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      border: none;
+      padding: 0;
+      background: rgba(var(--color-foreground), 0.25);
+      cursor: pointer;
+      transition: width 0.14s ease-out, background 0.14s ease-out, opacity 0.14s ease-out;
+      opacity: 0.7;
+    }
+    .ucp-sticky-nav__dot.is-active {
+      width: 16px;
+      background: #111111;
+      opacity: 1;
+    }
+
+    @media (max-width: 1200px) {
+      #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__inner {
+        grid-template-columns: minmax(0, 1.5fr) minmax(220px, 1fr) minmax(170px, 0.85fr);
+      }
+      #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__build-row {
+        font-size: 14px;
+      }
+    }
+
+    @media (max-width: 1080px) {
+      #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__inner {
+        grid-template-columns: minmax(0, 1.45fr) minmax(240px, 1fr);
+      }
+      #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__col--total {
+        grid-column: 1 / -1;
+        text-align: left;
+        border-inline-start: none;
+        border-top: 1px solid rgba(var(--color-foreground), 0.08);
+        padding-inline-start: 0;
+        padding-top: 14px;
+      }
+    }
+
+    @media (max-width: 900px) {
+      #ucp-sticky-preview-{{ section.id }} {
+        padding: 0 10px calc(10px + env(safe-area-inset-bottom));
+      }
+      #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__dock {
+        width: 100%;
+      }
+      #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__handle {
+        padding: 10px 14px;
+      }
+      #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__shell {
+        max-height: 75vh;
+        overflow-y: auto;
+      }
+      #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__inner {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 0;
+        align-items: stretch;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        padding: 0;
+      }
+      #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__col {
+        flex: 0 0 100%;
+        max-width: 100%;
+        scroll-snap-align: start;
+        padding: 14px;
+        border-inline-start: none;
+      }
+      #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__col--total {
+        text-align: left;
+      }
+      #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__build-row {
+        font-size: 14px;
+      }
+      #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__controls-row {
+        gap: 10px 12px;
+      }
+      #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__empty {
+        width: 100%;
+        white-space: normal;
+      }
+      #ucp-sticky-preview-{{ section.id }} .ucp-sticky-preview__nav {
+        display: flex;
+      }
+    }
+  </style>
+
+  <div
+    id="ucp-sticky-preview-{{ section.id }}"
+    data-ucp-performance-sticky="true"
+    class="color-{{ section.settings.color_scheme }}"
+    aria-hidden="true"
+  >
+    <div class="ucp-sticky-preview__dock">
+      <button
+        type="button"
+        class="ucp-sticky-preview__handle"
+        data-ucp-sticky-handle
+        aria-expanded="false"
+        aria-controls="ucp-sticky-preview-shell-{{ section.id }}"
+      >
+        <span class="ucp-sticky-preview__handle-label">
+          {{ section.settings.title_label | default: 'Performance preview' }}
+        </span>
+        <span class="ucp-sticky-preview__handle-icon" aria-hidden="true">&#9662;</span>
+      </button>
+
+      <div
+        class="ucp-sticky-preview__shell"
+        id="ucp-sticky-preview-shell-{{ section.id }}"
+      >
+        <div class="ucp-sticky-preview__inner" data-ucp-sticky-track>
+          <div class="ucp-sticky-preview__col ucp-sticky-preview__col--fps">
+            <div class="ucp-sticky-preview__label">
+              {{ section.settings.title_label }}
+            </div>
+
+            <div class="ucp-sticky-preview__build-row">
+              <span class="ucp-sticky-preview__build-item">{{ cpu_display | default: 'CPU not selected' }}</span>
+              <span class="ucp-sticky-preview__build-item">{{ gpu_display | default: 'GPU not selected' }}</span>
+            </div>
+
+            <div class="ucp-sticky-preview__row ucp-sticky-preview__controls-row">
+              <div class="ucp-pill-group">
+                <span class="ucp-sticky-preview__label ucp-sticky-preview__label--inline">
+                  Resolution
+                </span>
+                <span
+                  class="ucp-pill{% if chosen_res == '1080p' %} is-active{% endif %}"
+                  data-type="resolution"
+                  data-value="1080p"
+                >
+                  1080p
+                </span>
+                <span
+                  class="ucp-pill{% if chosen_res == '1440p' %} is-active{% endif %}"
+                  data-type="resolution"
+                  data-value="1440p"
+                >
+                  1440p
+                </span>
+              </div>
+
+              <div class="ucp-pill-group">
+                <span class="ucp-sticky-preview__label ucp-sticky-preview__label--inline">
+                  Preset
+                </span>
+                <span
+                  class="ucp-pill{% if preset_down == 'low' %} is-active{% endif %}"
+                  data-type="preset"
+                  data-value="low"
+                >
+                  Low
+                </span>
+                <span
+                  class="ucp-pill{% if preset_down == 'medium' or preset_down == 'med' %} is-active{% endif %}"
+                  data-type="preset"
+                  data-value="medium"
+                >
+                  Med
+                </span>
+                <span
+                  class="ucp-pill{% if preset_down == 'high' %} is-active{% endif %}"
+                  data-type="preset"
+                  data-value="high"
+                >
+                  High
+                </span>
+              </div>
+            </div>
+
+            <div class="ucp-sticky-preview__games-row">
+              {% if games_markup != '' %}
+                <button
+                  class="ucp-games-nav ucp-games-nav--prev"
+                  type="button"
+                  aria-label="Previous game"
+                >
+                  &#8249;
+                </button>
+
+                <div class="ucp-sticky-preview__row ucp-sticky-preview__row--games" data-ucp-games-row>
+                  {{ games_markup }}
+                </div>
+
+                <button
+                  class="ucp-games-nav ucp-games-nav--next"
+                  type="button"
+                  aria-label="Next game"
+                >
+                  &#8250;
+                </button>
+              {% else %}
+                <div class="ucp-sticky-preview__row ucp-sticky-preview__row--games">
+                  <div class="ucp-sticky-preview__empty">
+                    {% if base_cpu == '' or base_gpu == '' %}
+                      Add a CPU and GPU to the cart to show estimated game FPS.
+                    {% else %}
+                      No benchmark data is available yet for the current CPU and GPU.
+                    {% endif %}
+                  </div>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="ucp-sticky-preview__col ucp-sticky-preview__col--cooler">
+            <div class="ucp-sticky-preview__label">
+              {{ section.settings.cooler_label }}
+            </div>
+            <div class="ucp-sticky-preview__row">
+              <span>{{ full_load_cpu_name | default: 'CPU not set' }}</span>
+            </div>
+            <div class="ucp-sticky-preview__row">
+              <span>{{ full_load_cooler_name | default: 'Cooler not set' }}</span>
+            </div>
+            <div class="ucp-sticky-preview__row">
+              <div class="ucp-chip">
+                <span class="ucp-chip__label">{{ section.settings.full_load_label }}</span>
+                <span class="ucp-chip__value">
+                  {% if full_load_temp != '' %}
+                    {{ full_load_temp }}&deg;C
+                  {% else %}
+                    n/a
+                  {% endif %}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="ucp-sticky-preview__col ucp-sticky-preview__col--total">
+            <div class="ucp-sticky-preview__label">
+              {{ section.settings.total_label }}
+            </div>
+            <div class="ucp-sticky-preview__total-value" data-ucp-total>
+              {{ total_money }}
+            </div>
+            <div class="ucp-sticky-preview__row">
+              <span class="ucp-sticky-preview__note">
+                {{ section.settings.total_note }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {%- comment -%}
+          Mobile navigation for the three panels.
+          Visible only on mobile via CSS.
+        {%- endcomment -%}
+        <div class="ucp-sticky-preview__nav" data-ucp-sticky-nav>
+          <button
+            type="button"
+            class="ucp-sticky-nav__btn ucp-sticky-nav__btn--prev"
+            aria-label="Previous panel"
+          >
+            &#8249;
+          </button>
+
+          <div class="ucp-sticky-nav__dots"></div>
+
+          <button
+            type="button"
+            class="ucp-sticky-nav__btn ucp-sticky-nav__btn--next"
+            aria-label="Next panel"
+          >
+            &#8250;
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ 'ucp-performance-sticky-autorefresh.js' | asset_url }}" defer></script>
+  <script>
+    (function() {
+      var STICKY_ID = '{{ section.id }}';
+      var BAR_ID = 'ucp-sticky-preview-{{ section.id }}';
+      var threshold = {{ section.settings.show_after_scroll | default: 320 | json }};
+      var STATE_KEY = 'ucpStickyState';
+
+      function isMobile() {
+        return !!(window.matchMedia && window.matchMedia('(max-width: 900px)').matches);
+      }
+
+      function defaultState() {
+        return isMobile() ? 'collapsed' : 'expanded';
+      }
+
+      function getStickyState() {
+        try {
+          if (!window.localStorage) return defaultState();
+          var v = window.localStorage.getItem(STATE_KEY);
+          if (v === 'collapsed' || v === 'expanded') return v;
+          return defaultState();
+        } catch (e) {
+          return defaultState();
+        }
+      }
+
+      function setStickyState(val) {
+        try {
+          if (!window.localStorage) return;
+          var normalized = (val === 'collapsed') ? 'collapsed' : 'expanded';
+          window.localStorage.setItem(STATE_KEY, normalized);
+        } catch (e) {}
+      }
+
+      function getBar() {
+        return document.getElementById(BAR_ID);
+      }
+
+      // applyCollapsed/expanded visual state + aria-expanded
+      function applyStickyState() {
+        var bar = getBar();
+        if (!bar) return;
+        var state = getStickyState();
+        var isCollapsed = state === 'collapsed';
+        bar.classList.toggle('is-collapsed', isCollapsed);
+
+        var handle = bar.querySelector('[data-ucp-sticky-handle]');
+        if (handle) {
+          handle.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+        }
+      }
+
+      function updateVisibility() {
+        var bar = getBar();
+        if (!bar) return;
+
+        if (window.scrollY > threshold) {
+          if (!bar.classList.contains('is-visible')) {
+            bar.classList.add('is-visible');
+          }
+          bar.setAttribute('aria-hidden', 'false');
+          // always reserve exactly the bar's height (collapsed or expanded)
+          document.documentElement.style.paddingBottom = bar.clientHeight + 'px';
+        } else {
+          if (bar.classList.contains('is-visible')) {
+            bar.classList.remove('is-visible');
+          }
+          bar.setAttribute('aria-hidden', 'true');
+          document.documentElement.style.paddingBottom = '';
+        }
+      }
+
+      // collapse/expand header behaviour
+      function initCollapseHandle() {
+        var bar = getBar();
+        if (!bar) return;
+        var handle = bar.querySelector('[data-ucp-sticky-handle]');
+        if (!handle) return;
+        if (handle.__ucpCollapseInit) return;
+        handle.__ucpCollapseInit = true;
+
+        applyStickyState();
+
+        handle.addEventListener('click', function() {
+          var current = getStickyState();
+          var next = current === 'collapsed' ? 'expanded' : 'collapsed';
+          setStickyState(next);
+          applyStickyState();
+          updateVisibility();
+        });
+      }
+
+      // limit game chips to a sliding window of 3 . move by 1 on click
+      function initGamesWindow() {
+        var bar = getBar();
+        if (!bar) return;
+
+        var gamesRow = bar.querySelector('[data-ucp-games-row]');
+        if (!gamesRow) return;
+
+        var chips = Array.prototype.slice.call(
+          gamesRow.querySelectorAll('.ucp-chip--game')
+        );
+        var prevBtn = bar.querySelector('.ucp-games-nav--prev');
+        var nextBtn = bar.querySelector('.ucp-games-nav--next');
+
+        if (!chips.length || !prevBtn || !nextBtn) return;
+
+        if (prevBtn.__ucpGamesInit || nextBtn.__ucpGamesInit) return;
+        prevBtn.__ucpGamesInit = true;
+        nextBtn.__ucpGamesInit = true;
+
+        var startIndex = 0;
+        var visibleCount = 3;
+
+        function render() {
+          var len = chips.length;
+          if (!len) return;
+
+          if (visibleCount > len) {
+            visibleCount = len;
+          }
+
+          if (startIndex < 0) {
+            startIndex = 0;
+          }
+          if (startIndex > len - visibleCount) {
+            startIndex = Math.max(0, len - visibleCount);
+          }
+
+          chips.forEach(function(chip, i) {
+            var show = i >= startIndex && i < startIndex + visibleCount;
+            chip.style.display = show ? 'inline-flex' : 'none';
+          });
+
+          var showNav = len > visibleCount;
+          prevBtn.hidden = !showNav;
+          nextBtn.hidden = !showNav;
+          prevBtn.disabled = !showNav || startIndex <= 0;
+          nextBtn.disabled = !showNav || startIndex + visibleCount >= len;
+        }
+
+        function shift(delta) {
+          startIndex += delta;
+          render();
+        }
+
+        prevBtn.addEventListener('click', function() {
+          shift(-1);
+        });
+        nextBtn.addEventListener('click', function() {
+          shift(1);
+        });
+
+        render();
+      }
+
+      function refreshStickyBar() {
+        var sectionEl = document.getElementById('shopify-section-' + STICKY_ID);
+        if (!sectionEl) return;
+        fetch(window.location.pathname + '?sections=' + encodeURIComponent(STICKY_ID), {
+          credentials: 'same-origin'
+        })
+          .then(function(r) { return r.json(); })
+          .then(function(json) {
+            if (!json || !json[STICKY_ID]) return;
+            var wrap = document.createElement('div');
+            wrap.innerHTML = json[STICKY_ID];
+            var next = wrap.querySelector('#shopify-section-' + STICKY_ID) || wrap.firstElementChild;
+            if (!next) return;
+            sectionEl.replaceWith(next);
+            updateVisibility();
+            applyStickyState();
+            initCollapseHandle();
+            initMobileSlides();
+            initGamesWindow();
+          })
+          .catch(function() {});
+      }
+
+      function postCartAttr(attrName, value) {
+        var fd = new FormData();
+        fd.append('attributes[' + attrName + ']', value);
+        return fetch('/cart/update.js', {
+          method: 'POST',
+          body: fd,
+          credentials: 'same-origin',
+          headers: { 'Accept': 'application/json' }
+        })
+          .then(function(r) { return r.json(); });
+      }
+
+      function initMobileSlides() {
+        var bar = getBar();
+        if (!bar) return;
+
+        var track = bar.querySelector('[data-ucp-sticky-track]');
+        if (!track) return;
+
+        var slides = track.querySelectorAll('.ucp-sticky-preview__col');
+        if (!slides.length) return;
+
+        var nav = bar.querySelector('[data-ucp-sticky-nav]');
+        if (!nav) return;
+
+        var prevBtn = nav.querySelector('.ucp-sticky-nav__btn--prev');
+        var nextBtn = nav.querySelector('.ucp-sticky-nav__btn--next');
+        var dotsHost = nav.querySelector('.ucp-sticky-nav__dots');
+        if (!dotsHost) return;
+
+        if (bar.__ucpSlidesInit) return;
+        bar.__ucpSlidesInit = true;
+
+        dotsHost.innerHTML = '';
+        for (var i = 0; i < slides.length; i++) {
+          var dot = document.createElement('button');
+          dot.type = 'button';
+          dot.className = 'ucp-sticky-nav__dot' + (i === 0 ? ' is-active' : '');
+          dot.setAttribute('data-index', String(i));
+          dotsHost.appendChild(dot);
+        }
+
+        var index = 0;
+
+        function snapTo(idx, smooth) {
+          if (!isMobile()) return;
+
+          var max = slides.length - 1;
+          if (max < 0) return;
+
+          index = Math.max(0, Math.min(max, idx));
+
+          var slideWidth = track.clientWidth || 1;
+          var left = slideWidth * index;
+
+          track.scrollTo({
+            left: left,
+            behavior: smooth ? 'smooth' : 'auto'
+          });
+
+          var dots = dotsHost.querySelectorAll('.ucp-sticky-nav__dot');
+          dots.forEach(function(dotEl, i) {
+            dotEl.classList.toggle('is-active', i === index);
+          });
+
+          if (prevBtn) prevBtn.disabled = index === 0;
+          if (nextBtn) nextBtn.disabled = index === max;
+        }
+
+        if (prevBtn) {
+          prevBtn.addEventListener('click', function() {
+            if (!isMobile()) return;
+            snapTo(index - 1, true);
+          });
+        }
+        if (nextBtn) {
+          nextBtn.addEventListener('click', function() {
+            if (!isMobile()) return;
+            snapTo(index + 1, true);
+          });
+        }
+
+        nav.addEventListener('click', function(evt) {
+          var dot = evt.target.closest('.ucp-sticky-nav__dot');
+          if (!dot || !isMobile()) return;
+          var idx = parseInt(dot.getAttribute('data-index') || '0', 10);
+          if (isNaN(idx)) idx = 0;
+          snapTo(idx, true);
+        });
+
+        var scrollFrameId = null;
+        track.addEventListener('scroll', function() {
+          if (!isMobile()) return;
+          if (scrollFrameId) cancelAnimationFrame(scrollFrameId);
+          scrollFrameId = requestAnimationFrame(function() {
+            var slideWidth = track.clientWidth || 1;
+            if (!slideWidth) return;
+            var raw = track.scrollLeft / slideWidth;
+            var idx = Math.round(raw);
+            var max = slides.length - 1;
+            idx = Math.max(0, Math.min(max, idx));
+            if (idx !== index) {
+              index = idx;
+              snapTo(index, false);
+            }
+          });
+        });
+
+        window.addEventListener('resize', function() {
+          if (!isMobile()) return;
+          snapTo(index, false);
+        });
+
+        snapTo(0, false);
+      }
+
+      document.addEventListener('click', function(evt) {
+        var bar = getBar();
+        if (!bar) return;
+
+        var pill = evt.target.closest('.ucp-pill[data-type]');
+        if (pill && bar.contains(pill)) {
+          var type = pill.getAttribute('data-type');
+          var value = (pill.getAttribute('data-value') || '').toLowerCase();
+          if (!type || !value) return;
+
+          bar.querySelectorAll('.ucp-pill[data-type="' + type + '"]').forEach(function(el) {
+            el.classList.toggle('is-active', el === pill);
+          });
+
+          var attrName = type === 'resolution' ? 'chosen_res' : 'chosen_preset';
+          postCartAttr(attrName, value)
+            .then(function() {
+              refreshStickyBar();
+            })
+            .catch(function() {});
+          return;
+        }
+      });
+
+      document.addEventListener('uncapped:cart-updated', function() {
+        refreshStickyBar();
+      });
+
+      document.addEventListener('uncapped:combo-total-changed', function(e) {
+        var bar = getBar();
+        if (!bar) return;
+        var totalNode = bar.querySelector('[data-ucp-total]');
+        if (!totalNode || !e.detail || !e.detail.formatted) return;
+        totalNode.textContent = e.detail.formatted;
+      });
+
+      window.addEventListener('scroll', updateVisibility, { passive: true });
+      window.addEventListener('resize', updateVisibility);
+
+      document.addEventListener('shopify:section:load', function(evt) {
+        if (!evt || !evt.detail || !evt.detail.sectionId) return;
+        if (evt.detail.sectionId === STICKY_ID) {
+          updateVisibility();
+          applyStickyState();
+          initCollapseHandle();
+          initMobileSlides();
+          initGamesWindow();
+        }
+      });
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+          updateVisibility();
+          applyStickyState();
+          initCollapseHandle();
+          initMobileSlides();
+          initGamesWindow();
+        });
+      } else {
+        updateVisibility();
+        applyStickyState();
+        initCollapseHandle();
+        initMobileSlides();
+        initGamesWindow();
+      }
+    })();
+  </script>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Uncapped Sticky1",
+  "templates": ["page"],
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "enable_section",
+      "label": "Enable sticky performance bar",
+      "default": true
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "scheme-1"
+    },
+    {
+      "type": "header",
+      "content": "Scroll behaviour"
+    },
+    {
+      "type": "range",
+      "id": "show_after_scroll",
+      "label": "Show after scroll (px)",
+      "min": 0,
+      "max": 1200,
+      "step": 50,
+      "default": 400
+    },
+    {
+      "type": "header",
+      "content": "Performance data"
+    },
+    {
+      "type": "text",
+      "id": "res_options",
+      "label": "Resolution options (CSV)",
+      "default": "1080p,1440p"
+    },
+    {
+      "type": "text",
+      "id": "preset_options",
+      "label": "Preset options (CSV)",
+      "default": "low,medium,high"
+    },
+    {
+      "type": "text",
+      "id": "res",
+      "label": "Default resolution",
+      "default": "1440p"
+    },
+    {
+      "type": "text",
+      "id": "preset",
+      "label": "Default preset",
+      "default": "high"
+    },
+    {
+      "type": "text",
+      "id": "fallback_cpu",
+      "label": "Fallback CPU handle",
+      "default": "ryzen-5-7500f"
+    },
+    {
+      "type": "text",
+      "id": "fallback_gpu",
+      "label": "Fallback GPU handle",
+      "default": "rx-7800-xt-16gb"
+    },
+    {
+      "type": "select",
+      "id": "games_source",
+      "label": "Games source",
+      "options": [
+        { "value": "auto", "label": "Auto (discover from metaobjects)" },
+        { "value": "manual", "label": "Manual (CSV below)" }
+      ],
+      "default": "auto"
+    },
+    {
+      "type": "text",
+      "id": "games_csv",
+      "label": "Game handles (CSV if manual)",
+      "default": "valorant,dota-2,cs-2"
+    },
+    {
+      "type": "range",
+      "id": "max_games_display",
+      "label": "Max games to show in sticky",
+      "min": 0,
+      "max": 20,
+      "step": 1,
+      "default": 6,
+      "info": "Set to 0 to show all discovered games"
+    },
+    {
+      "type": "header",
+      "content": "Labels"
+    },
+    {
+      "type": "text",
+      "id": "title_label",
+      "label": "Left block label",
+      "default": "Uncapped performance preview"
+    },
+    {
+      "type": "text",
+      "id": "cooler_label",
+      "label": "Cooler block label",
+      "default": "Cooler performance (full load)"
+    },
+    {
+      "type": "text",
+      "id": "full_load_label",
+      "label": "Full load temperature label",
+      "default": "On full load"
+    },
+    {
+      "type": "text",
+      "id": "total_label",
+      "label": "Total label",
+      "default": "Total amount"
+    },
+    {
+      "type": "text",
+      "id": "total_note",
+      "label": "Total note (small text)",
+      "default": "Based on items in your cart"
+    },
+    {
+      "type": "header",
+      "content": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "pt",
+      "label": "Padding top",
+      "min": 0,
+      "max": 5,
+      "step": 0.5,
+      "default": 0.5
+    },
+    {
+      "type": "range",
+      "id": "pb",
+      "label": "Padding bottom",
+      "min": 0,
+      "max": 5,
+      "step": 0.5,
+      "default": 0.5
+    }
+  ],
+  "presets": [
+    {
+      "name": "Uncapped Performance Sticky"
+    }
+  ]
+}
+{% endschema %}
+

@@ -1,0 +1,756 @@
+<div
+  id="price-list-nav-{{ section.id }}"
+  class="upl-price-list-nav-section color-{{ section.settings.color_scheme }}"
+>
+  <div class="section-background color-{{ section.settings.color_scheme }}"></div>
+  <div
+    class="
+      section
+      section--{{ section.settings.section_width }}
+      color-{{ section.settings.color_scheme }}
+      spacing-style
+    "
+    data-upl-price-list-nav-shell
+    style="
+      {% render 'spacing-style', settings: section.settings %}
+    "
+  >
+    <div class="upl-price-list-nav" data-upl-price-list-nav-root>
+      <div class="upl-price-list-nav__top-shell" data-upl-price-list-nav-top-shell>
+        <div class="upl-price-list-nav__top-header">
+          <div class="upl-price-list-nav__eyebrow">Browse components</div>
+          <div class="upl-price-list-nav__top-controls">
+            <button
+              type="button"
+              class="upl-price-list-nav__arrow upl-price-list-nav__arrow--prev"
+              data-upl-price-list-nav-prev
+              aria-label="Scroll categories left"
+            >
+              <span aria-hidden="true">&lt;</span>
+            </button>
+            <button
+              type="button"
+              class="upl-price-list-nav__arrow upl-price-list-nav__arrow--next"
+              data-upl-price-list-nav-next
+              aria-label="Scroll categories right"
+            >
+              <span aria-hidden="true">&gt;</span>
+            </button>
+          </div>
+        </div>
+        <div
+          class="upl-price-list-nav__top-track"
+          data-upl-price-list-nav-top-track
+          aria-label="Price list category navigation"
+        ></div>
+      </div>
+
+      <div class="upl-price-list-nav__sticky-shell" data-upl-price-list-nav-sticky hidden>
+        <div class="upl-price-list-nav__sticky-bar">
+          <div
+            class="upl-price-list-nav__sticky-track"
+            data-upl-price-list-nav-sticky-track
+            aria-label="Sticky price list category navigation"
+          ></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  #price-list-nav-{{ section.id }} {
+    --upl-price-list-nav-sticky-top: 0px;
+    --upl-price-list-nav-fixed-left: 12px;
+    --upl-price-list-nav-fixed-width: calc(100vw - 24px);
+    --upl-price-list-nav-fixed-max-width: 1400px;
+    --upl-price-list-nav-sticky-height: 58px;
+    position: relative;
+    z-index: 8;
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav {
+    position: relative;
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__top-shell {
+    background:
+      linear-gradient(180deg, rgb(var(--color-background-rgb) / 0.98), rgb(var(--color-background-rgb) / 0.94));
+    border: 1px solid rgb(var(--color-foreground-rgb) / 0.1);
+    border-radius: 24px;
+    box-shadow: 0 18px 42px rgb(15 23 42 / 0.08);
+    padding: 18px;
+  }
+
+  #price-list-nav-{{ section.id }}[data-mega-menu-open="1"] {
+    z-index: 1 !important;
+  }
+
+  #price-list-nav-{{ section.id }}[data-mega-menu-open="1"] .upl-price-list-nav__top-shell,
+  #price-list-nav-{{ section.id }}[data-mega-menu-open="1"] .upl-price-list-nav__sticky-bar {
+    position: relative;
+    z-index: 1 !important;
+  }
+
+  #price-list-nav-{{ section.id }}[data-mega-menu-open="1"] .upl-price-list-nav__sticky-shell {
+    z-index: 1 !important;
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__top-header {
+    align-items: center;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__eyebrow {
+    color: rgb(var(--color-foreground-rgb) / 0.62);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__top-controls {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__arrow {
+    align-items: center;
+    appearance: none;
+    background: rgb(var(--color-background-rgb));
+    border: 1px solid rgb(var(--color-foreground-rgb) / 0.12);
+    border-radius: 999px;
+    color: rgb(var(--color-foreground-rgb));
+    cursor: pointer;
+    display: inline-flex;
+    font-size: 1rem;
+    font-weight: 700;
+    height: 38px;
+    justify-content: center;
+    padding: 0;
+    transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
+    width: 38px;
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__arrow[disabled] {
+    cursor: default;
+    opacity: 0.38;
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__arrow:not([disabled]):hover,
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__arrow:not([disabled]):focus-visible {
+    background: rgb(var(--color-foreground-rgb) / 0.04);
+    border-color: rgb(var(--color-foreground-rgb) / 0.2);
+    transform: translateY(-1px);
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__top-track,
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__sticky-track {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__top-track::-webkit-scrollbar,
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__sticky-track::-webkit-scrollbar {
+    display: none;
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__top-track {
+    padding-bottom: 2px;
+    scroll-snap-type: x proximity;
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__card,
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__chip {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    padding: 0;
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__card {
+    align-items: flex-start;
+    background: rgb(var(--color-background-rgb));
+    border: 1px solid rgb(var(--color-foreground-rgb) / 0.08);
+    border-radius: 20px;
+    display: flex;
+    flex: 0 0 clamp(136px, 19vw, 176px);
+    flex-direction: column;
+    gap: 10px;
+    min-height: 100%;
+    padding: 12px;
+    scroll-snap-align: start;
+    text-align: left;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__card:hover,
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__card:focus-visible {
+    border-color: rgb(var(--color-foreground-rgb) / 0.18);
+    box-shadow: 0 14px 28px rgb(15 23 42 / 0.08);
+    transform: translateY(-2px);
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__card[aria-current='true'] {
+    border-color: rgb(var(--color-foreground-rgb) / 0.26);
+    box-shadow: 0 16px 30px rgb(15 23 42 / 0.1);
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__card-media {
+    align-items: center;
+    aspect-ratio: 1 / 1;
+    background:
+      linear-gradient(160deg, rgb(var(--color-foreground-rgb) / 0.04), rgb(var(--color-foreground-rgb) / 0.01));
+    border-radius: 16px;
+    display: flex;
+    justify-content: center;
+    overflow: hidden;
+    width: 100%;
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__card-media img {
+    display: block;
+    height: 100%;
+    object-fit: contain;
+    width: 100%;
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__card-media-placeholder {
+    align-items: center;
+    color: rgb(var(--color-foreground-rgb) / 0.4);
+    display: inline-flex;
+    font-size: 1.3rem;
+    font-weight: 700;
+    justify-content: center;
+    min-height: 100%;
+    width: 100%;
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__card-label {
+    font-size: 0.98rem;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__sticky-shell {
+    left: var(--upl-price-list-nav-fixed-left);
+    position: fixed;
+    top: var(--upl-price-list-nav-sticky-top);
+    width: var(--upl-price-list-nav-fixed-width);
+    z-index: 28;
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__sticky-bar {
+    align-items: center;
+    backdrop-filter: blur(14px);
+    background: rgb(var(--color-background-rgb) / 0.92);
+    border: 1px solid rgb(var(--color-foreground-rgb) / 0.08);
+    border-radius: 999px;
+    box-shadow: 0 12px 32px rgb(15 23 42 / 0.14);
+    display: flex;
+    min-height: var(--upl-price-list-nav-sticky-height);
+    padding: 9px 10px;
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__sticky-track {
+    gap: 8px;
+    width: 100%;
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__chip {
+    align-items: center;
+    background: transparent;
+    border: 1px solid rgb(var(--color-foreground-rgb) / 0.08);
+    border-radius: 999px;
+    color: rgb(var(--color-foreground-rgb) / 0.74);
+    display: inline-flex;
+    flex: 0 0 auto;
+    font-size: 0.92rem;
+    font-weight: 600;
+    justify-content: center;
+    min-height: 38px;
+    padding: 0 16px;
+    transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+    white-space: nowrap;
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__chip:hover,
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__chip:focus-visible {
+    background: rgb(var(--color-foreground-rgb) / 0.05);
+    border-color: rgb(var(--color-foreground-rgb) / 0.16);
+    color: rgb(var(--color-foreground-rgb));
+  }
+
+  #price-list-nav-{{ section.id }} .upl-price-list-nav__chip[aria-current='true'] {
+    background: rgb(var(--color-foreground-rgb));
+    border-color: rgb(var(--color-foreground-rgb));
+    color: rgb(var(--color-background-rgb));
+  }
+
+  @media (max-width: 989px) {
+    #price-list-nav-{{ section.id }} .upl-price-list-nav__top-shell {
+      border-radius: 20px;
+      padding: 14px;
+    }
+
+    #price-list-nav-{{ section.id }} .upl-price-list-nav__card {
+      flex-basis: clamp(124px, 44vw, 152px);
+      padding: 10px;
+    }
+  }
+
+  @media (max-width: 749px) {
+    #price-list-nav-{{ section.id }} {
+      --upl-price-list-nav-sticky-height: 54px;
+    }
+
+    #price-list-nav-{{ section.id }} .upl-price-list-nav__top-header {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    #price-list-nav-{{ section.id }} .upl-price-list-nav__top-controls {
+      display: none;
+    }
+
+    #price-list-nav-{{ section.id }} .upl-price-list-nav__card-label {
+      font-size: 0.92rem;
+    }
+
+    #price-list-nav-{{ section.id }} .upl-price-list-nav__sticky-bar {
+      border-radius: 20px;
+      padding-inline: 8px;
+    }
+
+    #price-list-nav-{{ section.id }} .upl-price-list-nav__chip {
+      font-size: 0.86rem;
+      min-height: 34px;
+      padding-inline: 13px;
+    }
+  }
+</style>
+
+<script>
+  (() => {
+    const rootEl = document.getElementById('price-list-nav-{{ section.id }}');
+    if (!rootEl || rootEl.dataset.uplPriceListNavBound === 'true') return;
+    rootEl.dataset.uplPriceListNavBound = 'true';
+
+    const shellEl = rootEl.querySelector('[data-upl-price-list-nav-shell]');
+    const topShell = rootEl.querySelector('[data-upl-price-list-nav-top-shell]');
+    const topTrack = rootEl.querySelector('[data-upl-price-list-nav-top-track]');
+    const stickyShell = rootEl.querySelector('[data-upl-price-list-nav-sticky]');
+    const stickyTrack = rootEl.querySelector('[data-upl-price-list-nav-sticky-track]');
+    const prevBtn = rootEl.querySelector('[data-upl-price-list-nav-prev]');
+    const nextBtn = rootEl.querySelector('[data-upl-price-list-nav-next]');
+    const targetSelector = '[data-upl-price-list-nav-target="true"]';
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let categories = [];
+    let rafHandle = 0;
+    let megaMenuRaf = 0;
+    let activeIndex = -1;
+
+    const megaMenuSelectors = [
+      '[data-menu-list-id^="MegaMenuList"]',
+      '[data-menu-list-id="MegaMenuList-1"]',
+      '.mega-menu__column',
+      '.mega-menu__column--span-1',
+      'header-drawer[open]',
+      'header-drawer .menu-drawer',
+      '.menu-drawer',
+      '#menu-drawer',
+      '[id^="menu-drawer"]',
+      '[data-menu-drawer]',
+      '.mobile-menu',
+      '.mobile-menu-drawer'
+    ];
+
+    const megaMenuTriggerSelectors = [
+      '.menu-list__link-title[aria-expanded="true"]',
+      '[aria-controls^="MegaMenuList"][aria-expanded="true"]',
+      '.header__icon--menu[aria-expanded="true"]',
+      '[aria-controls*="menu-drawer"][aria-expanded="true"]',
+      '[aria-controls*="MenuDrawer"][aria-expanded="true"]',
+      '[aria-controls*="mobile-menu"][aria-expanded="true"]'
+    ];
+
+    function normalizeText(value) {
+      return (value || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function isVisibleMegaMenuElement(element) {
+      if (!element || !element.getClientRects || element.getClientRects().length === 0) return false;
+      const style = window.getComputedStyle(element);
+      if (!style) return false;
+      const rect = element.getBoundingClientRect();
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+      const intersectsViewport =
+        rect.width > 0 &&
+        rect.height > 0 &&
+        rect.right > 0 &&
+        rect.bottom > 0 &&
+        rect.left < viewportWidth &&
+        rect.top < viewportHeight;
+
+      return intersectsViewport && style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity || 1) > 0;
+    }
+
+    function hasOpenMegaMenu() {
+      const visibleMenu = megaMenuSelectors.some((selector) =>
+        Array.from(document.querySelectorAll(selector)).some(isVisibleMegaMenuElement)
+      );
+      if (visibleMenu) return true;
+
+      return megaMenuTriggerSelectors.some((selector) =>
+        Array.from(document.querySelectorAll(selector)).some((element) => {
+          if (!isVisibleMegaMenuElement(element)) return false;
+          const controls = String(element.getAttribute('aria-controls') || '').trim();
+          if (!controls) return true;
+          const controlled = document.getElementById(controls);
+          return controlled ? isVisibleMegaMenuElement(controlled) : true;
+        })
+      );
+    }
+
+    function syncMegaMenuStack() {
+      megaMenuRaf = 0;
+      if (hasOpenMegaMenu()) rootEl.setAttribute('data-mega-menu-open', '1');
+      else rootEl.removeAttribute('data-mega-menu-open');
+    }
+
+    function requestMegaMenuSync() {
+      if (megaMenuRaf) return;
+      megaMenuRaf = window.requestAnimationFrame(syncMegaMenuStack);
+    }
+
+    function getHeaderOffset() {
+      const selectors = [
+        'sticky-header',
+        '.shopify-section-group-header-group',
+        '[id^="shopify-section-header"]',
+        '.shopify-section-header',
+        'header.header',
+        'header'
+      ];
+      const seen = new Set();
+      let maxBottom = 0;
+
+      selectors.forEach((selector) => {
+        document.querySelectorAll(selector).forEach((element) => {
+          if (seen.has(element)) return;
+          seen.add(element);
+
+          const style = window.getComputedStyle(element);
+          if (style.display === 'none' || style.visibility === 'hidden') return;
+          if (style.position !== 'sticky' && style.position !== 'fixed') return;
+
+          const rect = element.getBoundingClientRect();
+          if (rect.height <= 0 || rect.height >= window.innerHeight) return;
+          if (rect.bottom <= 0) return;
+          if (rect.top > 36) return;
+          maxBottom = Math.max(maxBottom, rect.bottom);
+        });
+      });
+
+      return Math.ceil(maxBottom);
+    }
+
+    function getStickyHeight() {
+      const value = parseFloat(
+        window.getComputedStyle(rootEl).getPropertyValue('--upl-price-list-nav-sticky-height')
+      );
+      return Number.isFinite(value) ? value : 58;
+    }
+
+    function getCategoryTargets() {
+      return Array.from(document.querySelectorAll(targetSelector)).filter((target) => target.id);
+    }
+
+    function buildCategoryData() {
+      categories = getCategoryTargets().map((target, index) => {
+        const headerEl = target.querySelector('.section-resource-list__header');
+        const imageEl = target.querySelector('.resource-list__item img');
+        const titleFromData = normalizeText(target.dataset.uplPriceListNavLabel);
+        const titleFromHeader = normalizeText(headerEl ? headerEl.textContent : '');
+        const imageFromData = target.dataset.uplPriceListNavImage || '';
+        const imageFromCard = imageEl ? imageEl.getAttribute('src') || '' : '';
+
+        return {
+          id: target.id,
+          index,
+          image: imageFromData || imageFromCard,
+          label: titleFromData || titleFromHeader || `Category ${index + 1}`,
+          target
+        };
+      });
+    }
+
+    function createButton(category, mode) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.uplPriceListNavButton = 'true';
+      button.dataset.index = String(category.index);
+      button.dataset.mode = mode;
+      button.setAttribute('aria-controls', category.id);
+
+      if (mode === 'top') {
+        button.className = 'upl-price-list-nav__card';
+
+        const media = document.createElement('span');
+        media.className = 'upl-price-list-nav__card-media';
+
+        if (category.image) {
+          const image = document.createElement('img');
+          image.src = category.image;
+          image.alt = '';
+          image.loading = 'lazy';
+          media.appendChild(image);
+        } else {
+          const placeholder = document.createElement('span');
+          placeholder.className = 'upl-price-list-nav__card-media-placeholder';
+          placeholder.textContent = category.label.charAt(0).toUpperCase();
+          media.appendChild(placeholder);
+        }
+
+        const label = document.createElement('span');
+        label.className = 'upl-price-list-nav__card-label';
+        label.textContent = category.label;
+
+        button.append(media, label);
+      } else {
+        button.className = 'upl-price-list-nav__chip';
+        button.textContent = category.label;
+      }
+
+      button.addEventListener('click', () => scrollToCategory(category.index));
+      return button;
+    }
+
+    function renderTrack(track, mode) {
+      if (!track) return;
+      const fragment = document.createDocumentFragment();
+      categories.forEach((category) => {
+        fragment.appendChild(createButton(category, mode));
+      });
+      track.replaceChildren(fragment);
+    }
+
+    function setActiveIndex(nextIndex) {
+      if (nextIndex === activeIndex) return;
+      activeIndex = nextIndex;
+
+      rootEl.querySelectorAll('[data-upl-price-list-nav-button]').forEach((button) => {
+        const isActive = Number(button.dataset.index) === nextIndex;
+        if (isActive) {
+          button.setAttribute('aria-current', 'true');
+        } else {
+          button.removeAttribute('aria-current');
+        }
+      });
+    }
+
+    function getActiveIndex(referenceTop) {
+      let nextIndex = 0;
+      categories.forEach((category, index) => {
+        if (category.target.getBoundingClientRect().top <= referenceTop) {
+          nextIndex = index;
+        }
+      });
+      return nextIndex;
+    }
+
+    function updateArrowState() {
+      if (!topTrack || !prevBtn || !nextBtn) return;
+      const maxScroll = topTrack.scrollWidth - topTrack.clientWidth;
+      const hasOverflow = maxScroll > 8;
+      prevBtn.hidden = !hasOverflow;
+      nextBtn.hidden = !hasOverflow;
+      prevBtn.disabled = !hasOverflow || topTrack.scrollLeft <= 4;
+      nextBtn.disabled = !hasOverflow || topTrack.scrollLeft >= maxScroll - 4;
+    }
+
+    function syncStickyMetrics() {
+      if (!shellEl) return;
+      const headerOffset = getHeaderOffset();
+      const shellRect = shellEl.getBoundingClientRect();
+      const maxWidthSetting = parseFloat(
+        window.getComputedStyle(rootEl).getPropertyValue('--upl-price-list-nav-fixed-max-width')
+      );
+      const maxWidth = Number.isFinite(maxWidthSetting) ? maxWidthSetting : 1400;
+      const viewportWidth = Math.max(0, window.innerWidth - 24);
+      const shellWidth = Math.max(0, shellRect.width);
+      const width = Math.max(0, Math.min(shellWidth, maxWidth, viewportWidth));
+      const centeredLeft = shellRect.left + (shellWidth - width) / 2;
+      const left = Math.max(12, Math.min(centeredLeft, window.innerWidth - 12 - width));
+
+      rootEl.style.setProperty('--upl-price-list-nav-fixed-left', `${left}px`);
+      rootEl.style.setProperty('--upl-price-list-nav-fixed-width', `${width}px`);
+      rootEl.style.setProperty('--upl-price-list-nav-sticky-top', `${headerOffset + 8}px`);
+    }
+
+    function syncState() {
+      if (!categories.length) return;
+
+      syncStickyMetrics();
+      updateArrowState();
+
+      const headerOffset = getHeaderOffset();
+      const shouldShowSticky = topShell.getBoundingClientRect().bottom <= headerOffset + 8;
+      stickyShell.hidden = !shouldShowSticky;
+
+      const referenceTop = headerOffset + (shouldShowSticky ? getStickyHeight() + 20 : 18);
+      setActiveIndex(getActiveIndex(referenceTop));
+    }
+
+    function requestSync() {
+      if (rafHandle) return;
+      rafHandle = window.requestAnimationFrame(() => {
+        rafHandle = 0;
+        syncState();
+      });
+    }
+
+    function scrollTrackBy(direction) {
+      if (!topTrack) return;
+      topTrack.scrollBy({
+        left: topTrack.clientWidth * 0.82 * direction,
+        behavior: reducedMotion.matches ? 'auto' : 'smooth'
+      });
+    }
+
+    function scrollToCategory(index) {
+      const category = categories[index];
+      if (!category) return;
+
+      const topOffset = getHeaderOffset() + getStickyHeight() + 18;
+      const targetTop = window.scrollY + category.target.getBoundingClientRect().top - topOffset;
+
+      window.scrollTo({
+        top: Math.max(0, targetTop),
+        behavior: reducedMotion.matches ? 'auto' : 'smooth'
+      });
+
+      setActiveIndex(index);
+    }
+
+    function buildNavigator() {
+      buildCategoryData();
+
+      if (!categories.length) {
+        rootEl.hidden = true;
+        return;
+      }
+
+      rootEl.hidden = false;
+      renderTrack(topTrack, 'top');
+      renderTrack(stickyTrack, 'sticky');
+      requestSync();
+    }
+
+    if (prevBtn) {
+      prevBtn.addEventListener('click', () => scrollTrackBy(-1));
+    }
+
+    if (nextBtn) {
+      nextBtn.addEventListener('click', () => scrollTrackBy(1));
+    }
+
+    if (topTrack) {
+      topTrack.addEventListener('scroll', requestSync, { passive: true });
+    }
+
+    ['pointerover', 'pointerout', 'focusin', 'focusout', 'click', 'keydown', 'scroll', 'resize'].forEach((eventName) => {
+      const target = eventName === 'scroll' || eventName === 'resize' ? window : document;
+      target.addEventListener(eventName, requestMegaMenuSync, { passive: true });
+    });
+
+    if (document.body && window.MutationObserver) {
+      const megaMenuObserver = new MutationObserver(requestMegaMenuSync);
+      megaMenuObserver.observe(document.body, {
+        attributes: true,
+        subtree: true,
+        childList: true,
+        attributeFilter: ['aria-expanded', 'hidden', 'class', 'style', 'data-menu-list-id']
+      });
+    }
+
+    document.addEventListener('shopify:section:load', buildNavigator);
+    document.addEventListener('shopify:section:unload', buildNavigator);
+    window.addEventListener('scroll', requestSync, { passive: true });
+    window.addEventListener('resize', requestSync);
+    window.addEventListener('load', buildNavigator);
+    window.addEventListener('load', requestMegaMenuSync);
+
+    buildNavigator();
+    requestMegaMenuSync();
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Price list nav",
+  "class": "ui-price-list-nav",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Width",
+      "options": [
+        { "value": "page-width", "label": "Page width" },
+        { "value": "full-width", "label": "Full width" }
+      ],
+      "default": "page-width"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "scheme-1"
+    },
+    {
+      "type": "header",
+      "content": "Section padding"
+    },
+    {
+      "type": "range",
+      "id": "padding-block-start",
+      "label": "Top padding",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "padding-block-end",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 16
+    }
+  ],
+  "presets": [
+    {
+      "name": "Price list nav",
+      "category": "Products"
+    }
+  ]
+}
+{% endschema %}

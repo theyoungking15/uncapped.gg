@@ -1,0 +1,1375 @@
+/* File: assets/ucp-pc-builder.css */
+
+.ucp-pcb {
+  --ucp-pcb-action-dock-space: 0px;
+  padding: 24px 0 calc(24px + var(--ucp-pcb-action-dock-space));
+  transition: padding-bottom .18s ease;
+}
+.ucp-pcb__wrap
+{
+  width: min(1400px, calc(100% - 32px));
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 18px;
+}
+
+.ucp-pcb__summaryCard {
+  border: 1px solid rgba(0,0,0,.12);
+  border-radius: 14px;
+  padding: 14px;
+  background: #fff;
+  position: sticky;
+  top: 18px;
+}
+
+.ucp-pcb__summaryTitle { font-weight: 700; margin-bottom: 10px; }
+.ucp-pcb__picked { display: grid; gap: 10px; margin-bottom: 12px; }
+.ucp-pcb__summaryDockSource { display: grid; }
+.ucp-pcb__pickedItem {
+  display:flex; justify-content:space-between; gap:10px;
+  padding: 10px; border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.08);
+  background: rgba(0,0,0,.02);
+}
+.ucp-pcb__pickedItem small { opacity: .7; }
+
+.ucp-pcb__totals { border-top: 1px solid rgba(0,0,0,.12); padding-top: 12px; margin-top: 12px; }
+.ucp-pcb__totalsRow { display:flex; justify-content:space-between; padding: 6px 0; }
+.ucp-pcb__totalsRow--grand { font-size: 16px; }
+
+.ucp-pcb__actions { display:flex; gap:10px; margin-top: 12px; }
+.ucp-pcb__desktopDock {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(1400px, calc(100% - 32px));
+  z-index: 120;
+  border: 1px solid rgba(0,0,0,.12);
+  border-radius: 18px;
+  background: rgba(255,255,255,.98);
+  box-shadow: 0 18px 40px rgba(0,0,0,.14);
+  backdrop-filter: blur(10px);
+}
+.ucp-pcb__desktopDockInner {
+  display: grid;
+  grid-template-columns: minmax(200px, 260px) 1fr;
+  gap: 16px;
+  align-items: center;
+  padding: 14px 16px;
+}
+.ucp-pcb__desktopDockSummary { display: grid; gap: 4px; }
+.ucp-pcb__desktopDockLabel {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  opacity: .65;
+  text-transform: uppercase;
+}
+.ucp-pcb__desktopDockValue {
+  font-size: 22px;
+  line-height: 1.1;
+}
+.ucp-pcb__desktopDockActions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.ucp-pcb__desktopDockActions .ucp-pcb__btn {
+  font-family: inherit;
+  min-height: 48px;
+  white-space: nowrap;
+}
+.ucp-pcb__btn {
+  border-radius: 12px; padding: 10px 12px;
+  border: 1px solid rgba(0,0,0,.18);
+  background: #fff; cursor: pointer;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-weight: 600;
+}
+.ucp-pcb__btn--solid { background: #000; color: #fff; border-color:#000; }
+.ucp-pcb__btn--ghost { background: #fff; }
+
+.ucp-pcb__tabs {
+  align-items: center;
+  display:flex;
+  flex-wrap:wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(255,255,255,.94));
+  box-shadow: 0 12px 28px rgba(15,23,42,.08);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.ucp-pcb__tab {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 10px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,.1);
+  background: #fff;
+  cursor:pointer;
+  font-family: inherit;
+  font-weight: 600;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
+}
+.ucp-pcb__tab.is-active {
+  background:#000;
+  color:#fff;
+  border-color:#000;
+  box-shadow: none;
+}
+
+@media (min-width: 769px) {
+  .ucp-pcb__tabs {
+    position: sticky;
+    top: var(--ucp-pcb-tabs-top, 0px);
+    z-index: 40;
+    background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(255,255,255,.94));
+  }
+}
+
+.ucp-pcb__controls {
+  display:flex; flex-wrap:wrap; gap: 12px;
+  align-items:flex-end;
+  margin-bottom: 12px;
+}
+.ucp-pcb__control { display:grid; gap:6px; min-width: 160px; }
+.ucp-pcb__control label { font-size: 12px; opacity: .8; }
+.ucp-pcb__control select, .ucp-pcb__control input {
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.18);
+  padding: 10px 12px;
+}
+.ucp-pcb__control--right { margin-left:auto; }
+.ucp-pcb__control--toggle { min-width: auto; }
+.ucp-pcb__toggleLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid rgba(0,0,0,.18);
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+.ucp-pcb__toggleLabel input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+}
+
+/* Price slider */
+.ucp-pcb__priceOut { margin-left: 6px; font-weight: 700; opacity: .9; }
+.ucp-pcb__priceSlider {
+  width: 220px;
+  max-width: 100%;
+  padding: 0;
+  border-radius: 999px;
+}
+
+.ucp-pcb__table {
+  border: 1px solid rgba(0,0,0,.12);
+  border-radius: 14px;
+  overflow:hidden;
+  background:#fff;
+}
+.ucp-pcb__thead, .ucp-pcb__row {
+  display:grid;
+  grid-template-columns: 1.6fr repeat(4, .9fr) .9fr 120px;
+  gap: 10px;
+  align-items:center;
+  padding: 12px 14px;
+}
+.ucp-pcb__thead { background: rgba(0,0,0,.04); font-weight: 700; font-size: 12px; }
+.ucp-pcb__tbody { display:block; }
+.ucp-pcb__row { border-top: 1px solid rgba(0,0,0,.08); font-size: 13px; }
+.ucp-pcb__rowTitle { display:flex; gap:10px; align-items:center; }
+.ucp-pcb__thumb { width: 44px; height: 44px; border-radius: 10px; background: rgba(0,0,0,.06); overflow:hidden; flex: 0 0 auto; }
+.ucp-pcb__thumb img { width:100%; height:100%; object-fit: cover; }
+.ucp-pcb__select {
+  justify-self:end;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.18);
+  background:#fff;
+  cursor:pointer;
+  font-weight: 700;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.ucp-pcb__select.is-selected { background:#000; color:#fff; border-color:#000; }
+.ucp-pcb__select:disabled,
+.ucp-pcb__select.is-unavailable {
+  background: #f3f3f3;
+  color: rgba(0,0,0,.55);
+  border-color: rgba(0,0,0,.12);
+  cursor: not-allowed;
+}
+
+.ucp-pcb__loading { padding: 16px; opacity:.75; }
+
+@media (max-width: 980px) {
+  .ucp-pcb__wrap { grid-template-columns: 1fr; }
+  .ucp-pcb__summaryCard { position: relative; top: auto; }
+  .ucp-pcb__thead, .ucp-pcb__row {
+    grid-template-columns: 1.6fr 1fr 1fr 1fr 1fr 120px;
+  }
+  .ucp-pcb__priceSlider { width: 100%; }
+}
+
+@media (min-width: 769px) {
+  .ucp-pcb.ucp-pcb--actionDockVisible {
+    --ucp-pcb-action-dock-space: calc(116px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1100px) {
+  .ucp-pcb.ucp-pcb--actionDockVisible {
+    --ucp-pcb-action-dock-space: calc(176px + env(safe-area-inset-bottom));
+  }
+
+  .ucp-pcb__desktopDockInner {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .ucp-pcb__desktopDockActions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Force-hide anything with the HTML hidden attribute */
+.ucp-pcb [hidden] { display: none !important; }
+
+/* Bundle note inside Price cell */
+.ucp-pcb__actions { flex-wrap: wrap; }
+
+.ucp-pcb__priceCell { display: grid; gap: 2px; }
+.ucp-pcb__bundleNote { font-size: 11px; opacity: .75; }
+.ucp-pcb__leadTime[data-ucp-pcb-tier="tier1"] small { font-weight: 700; }
+
+/* Spec label/value blocks (labels are hidden on desktop, shown on mobile) */
+.ucp-pcb__specLabel { display: none; }
+.ucp-pcb__specValue { display: block; }
+
+/* ============================================================
+   MOBILE CARD LAYOUT (max-width: 768px)
+   Desktop table layout remains unchanged above this breakpoint.
+   ============================================================ */
+
+.ucp-pcb__rowMeta { display: none; }
+.ucp-pcb__overlay { display: none; }
+.ucp-pcb__mobileBar { display: none; }
+.ucp-pcb__drawerClose { display: none; }
+
+@media (max-width: 768px) {
+  /* Extra bottom space so the sticky bar does not cover content */
+  .ucp-pcb { padding-bottom: 110px; }
+  .ucp-pcb__desktopDock { display: none !important; }
+
+  /* Reorder layout on mobile so users see Tabs -> Controls -> List first, summary last */
+  .ucp-pcb__wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .ucp-pcb__main { order: 1; }
+  .ucp-pcb__summary { order: 2; }
+
+  /* Hide table header on mobile */
+  .ucp-pcb__thead { display: none; }
+
+  /* Remove desktop table chrome. Mobile is a vertical card list */
+  .ucp-pcb__table {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    overflow: visible;
+  }
+
+  .ucp-pcb__tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  /* Controls stack vertically on mobile */
+  .ucp-pcb__controls {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    align-items: stretch;
+  }
+  .ucp-pcb__control { min-width: 0; }
+  .ucp-pcb__priceSlider { width: 100%; }
+
+  /* Card */
+  .ucp-pcb__row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 12px;
+    padding: 12px;
+    border: 1px solid rgba(0,0,0,.10);
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 8px 20px rgba(0,0,0,.06);
+    position: relative;
+  }
+
+  .ucp-pcb__row.is-selected {
+    background: rgba(0,0,0,.02);
+    border-color: rgba(0,0,0,.18);
+  }
+
+  /* Top area */
+  .ucp-pcb__rowTitle {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding-right: 130px;
+  }
+
+  .ucp-pcb__thumb {
+    width: 54px;
+    height: 54px;
+    border-radius: 12px;
+  }
+
+  .ucp-pcb__rowTitle strong {
+    font-size: 14px;
+    line-height: 1.2;
+    display: block;
+  }
+
+  /* Desktop subline hidden on mobile */
+  .ucp-pcb__rowVendor { display: none; }
+
+  /* Mobile subline shown on mobile */
+  .ucp-pcb__rowMeta {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    opacity: .75;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Price pinned top-right */
+  .ucp-pcb__cell--price {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    text-align: right;
+    width: 120px;
+  }
+
+  .ucp-pcb__cell--price strong { font-size: 15px; }
+  .ucp-pcb__cell--price s { opacity: .55; }
+  .ucp-pcb__bundleNote { font-size: 11px; opacity: .70; }
+
+  /* Specs. label on top, value below */
+  .ucp-pcb__cell--spec {
+    background: rgba(0,0,0,.03);
+    border-radius: 12px;
+    padding: 10px 10px;
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .ucp-pcb__specLabel {
+    display: block;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    opacity: .65;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ucp-pcb__specValue {
+    display: block;
+    font-size: 13px;
+    color: #111;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Hide empty specs for cleaner cards */
+  .ucp-pcb__cell--spec[data-empty="1"] { display: none; }
+
+  /* Full-width button at bottom */
+  .ucp-pcb__select {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-self: stretch;
+    margin-top: 2px;
+    padding: 12px 12px;
+    border-radius: 12px;
+
+    background: #000;
+    color: #fff;
+    border-color: #000;
+  }
+
+  /* Mobile selected state. Outline look */
+  .ucp-pcb__select.is-selected {
+    background: #fff;
+    color: #111;
+    border-color: rgba(0,0,0,.28);
+  }
+
+  /* Sticky bottom bar */
+  .ucp-pcb__mobileBar {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    align-items: stretch;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+
+    padding: 10px 12px 12px;
+    background: #fff;
+    border-top: 1px solid rgba(0,0,0,.12);
+    box-shadow: 0 -10px 20px rgba(0,0,0,.06);
+  }
+
+  .ucp-pcb__mobileBarMain {
+    border: 1px solid rgba(0,0,0,.12);
+    background: #fff;
+    border-radius: 14px;
+    padding: 12px 14px;
+    cursor: pointer;
+    text-align: left;
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+    font-family: inherit;
+  }
+
+  .ucp-pcb__mobileBarTop {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: baseline;
+    min-width: 0;
+  }
+
+  .ucp-pcb__mobileBarTitle {
+    font-weight: 800;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ucp-pcb__mobileBarCount {
+    font-size: 12px;
+    opacity: .70;
+    white-space: nowrap;
+  }
+
+  .ucp-pcb__mobileBarNums {
+    display: grid;
+    gap: 4px;
+    align-items: start;
+  }
+
+  .ucp-pcb__mobileBarNums strong {
+    font-weight: 900;
+    font-size: 17px;
+    line-height: 1.1;
+  }
+
+  .ucp-pcb__mobileBarNums small {
+    font-size: 12px;
+    opacity: .70;
+    line-height: 1.25;
+  }
+
+  /* IMPORTANT. Force 3 actions to show on mobile: Share, Screenshot, Quote */
+  .ucp-pcb__mobileBarActions {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    align-items: center;
+    width: 100%;
+  }
+
+  .ucp-pcb__mobileBarBtn {
+    border-radius: 12px;
+    min-height: 40px;
+    padding: 9px 6px;
+    border: 1px solid rgba(0,0,0,.18);
+    background: #fff;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 11px;
+    font-family: inherit;
+    min-width: 0;
+    justify-content: center;
+    align-items: center;
+    display: inline-flex;
+    white-space: nowrap;
+  }
+
+  #ucp-pcb-mobilebar-share{
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  /* Drawer overlay */
+  .ucp-pcb__overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(0,0,0,.35);
+  }
+
+  /* Bottom drawer behavior. summary card becomes fixed when open */
+  .ucp-pcb--drawerOpen .ucp-pcb__summaryCard {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    z-index: 1001;
+
+    border-radius: 16px 16px 0 0;
+    max-height: 80vh;
+    overflow: auto;
+
+    padding: 12px 14px 14px;
+  }
+
+  .ucp-pcb__drawerClose {
+    display: none;
+    width: 100%;
+    border-radius: 12px;
+    padding: 10px 12px;
+    border: 1px solid rgba(0,0,0,.18);
+    background: #fff;
+    cursor: pointer;
+    font-weight: 800;
+    margin-bottom: 10px;
+  }
+
+  .ucp-pcb--drawerOpen .ucp-pcb__drawerClose { display: block; }
+}
+
+/* Extra squeeze for very narrow devices */
+@media (max-width: 420px){
+  .ucp-pcb__mobileBarBtn{
+    padding: 10px 6px;
+    font-size: 11px;
+  }
+}
+
+/* ------------------------------------------------------------
+  Mobile UX only (<= 768px)
+  - Tabs: single-line horizontal swipe
+  - Tabs: "peek" sticky that appears only when scrolling up
+  - Controls: compact grid layout, less real estate
+------------------------------------------------------------ */
+
+@media (max-width: 768px) {
+  /* Tabs. single line, swipe left/right */
+  .ucp-pcb__tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+
+    white-space: nowrap;
+
+    position: sticky;
+    top: 0;
+    z-index: 50;
+
+    padding: 10px 12px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 24px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.94));
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+
+    transition: transform 0.18s ease, opacity 0.18s ease;
+    will-change: transform, opacity;
+  }
+
+  .ucp-pcb__tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ucp-pcb__tab {
+    flex: 0 0 auto;
+    padding: 8px 10px;
+    font-size: 13px;
+    line-height: 1;
+    border-radius: 999px;
+  }
+
+  /* Sticky tabs. visible only when scrolling up (JS toggles data attrs) */
+  .ucp-pcb[data-tabs-sticky="1"][data-tabs-peek="0"] .ucp-pcb__tabs {
+    transform: translateY(-110%);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .ucp-pcb[data-tabs-sticky="1"][data-tabs-peek="1"] .ucp-pcb__tabs {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Subtle swipe hint on the right edge */
+  .ucp-pcb__tabs::after {
+    content: "";
+    position: sticky;
+    right: 0;
+    top: 0;
+    width: 22px;
+    flex: 0 0 22px;
+    pointer-events: none;
+    background: linear-gradient(to left, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0));
+  }
+
+  /* Controls. take less real estate */
+  .ucp-pcb__controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    align-items: end;
+    padding: 10px 0 0;
+  }
+
+  .ucp-pcb__control label {
+    font-size: 11px;
+    line-height: 1.1;
+    margin-bottom: 6px;
+    opacity: 0.75;
+  }
+
+  .ucp-pcb__control select {
+    width: 100%;
+    height: 40px;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  /* Price slider should be full width */
+  #ucp-pcb-price-wrap {
+    grid-column: 1 / -1;
+  }
+
+  #ucp-pcb-price-wrap label {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+  }
+}
+
+/* --- Variant strip (desktop + mobile) --- */
+.ucp-pcb__variantStrip { margin-top: 6px; display: grid; gap: 6px; }
+.ucp-pcb__variantLine { display: flex; align-items: center; gap: 1px; flex-wrap: wrap; }
+.ucp-pcb__variantLabel { font-size: 12px; opacity: .7; min-width: 64px; }
+.ucp-pcb__variantPills { display: flex; gap: 6px; flex-wrap: wrap; }
+.ucp-pcb__varPill {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,.2);
+  background: #fff;
+  cursor: pointer;
+}
+.ucp-pcb__varPill.is-active { background: #111; color: #fff; border-color: #111; }
+.ucp-pcb__varPill:hover { border-color: rgba(0,0,0,.45); }
+.ucp-pcb__varPill:disabled,
+.ucp-pcb__varPill.is-disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  border-color: rgba(0,0,0,.14);
+}
+
+.ucp-pcb__variantSwatches { display: flex; gap: 8px; align-items: center; }
+.ucp-pcb__varSwatch {
+  width: 18px; height: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,.25);
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.ucp-pcb__varSwatch span {
+  width: 12px; height: 12px; border-radius: 999px; display: block;
+}
+.ucp-pcb__varSwatch.is-active { box-shadow: 0 0 0 2px rgba(0,0,0,.75); }
+.ucp-pcb__varSwatch:hover { border-color: rgba(0,0,0,.45); }
+.ucp-pcb__varSwatch:disabled,
+.ucp-pcb__varSwatch.is-disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  border-color: rgba(0,0,0,.14);
+}
+
+/* --- Mobile cards (if your JS renders .ucp-pcb__card) --- */
+@media (max-width: 768px) {
+  .ucp-pcb__card {
+    border: 1px solid rgba(0,0,0,.12);
+    border-radius: 14px;
+    padding: 12px;
+    background: #fff;
+    margin-bottom: 10px;
+  }
+
+  .ucp-pcb__cardTop { display: grid; grid-template-columns: 56px 1fr; gap: 10px; align-items: center; }
+  .ucp-pcb__cardTitle .b { font-size: 12px; opacity: .7; margin-top: 2px; }
+  .ucp-pcb__cardTitle .p { margin-top: 6px; display: flex; gap: 10px; align-items: baseline; }
+  .ucp-pcb__cardTitle .p .from { font-size: 12px; opacity: .7; }
+  .ucp-pcb__cardTitle .p .now { font-weight: 800; }
+
+  .ucp-pcb__cardSpecs {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 10px;
+  }
+  .ucp-pcb__cardSpec .k { font-size: 11px; opacity: .65; }
+  .ucp-pcb__cardSpec .v { font-size: 12px; opacity: .9; }
+
+  .ucp-pcb__cardBottom { margin-top: 10px; display: grid; gap: 10px; }
+  .ucp-pcb__cardPrice .strike { font-size: 12px; opacity: .6; text-decoration: line-through; }
+  .ucp-pcb__cardPrice .bold { font-weight: 800; }
+  .ucp-pcb__cardPrice .save { font-size: 12px; opacity: .75; }
+
+  .ucp-pcb__select--card {
+    width: 100%;
+    border-radius: 999px;
+    padding: 12px 14px;
+  }
+
+  .ucp-pcb__mobileBarBtn--solid {
+    background: #000;
+    color: #fff;
+    border-color: #000;
+    font-weight: 800;
+  }
+}
+
+.ucp-pcb[data-mega-menu-open="1"] .ucp-pcb__tabs {
+  z-index: 1 !important;
+}
+
+/* Request Final Quote modal */
+.ucp-pcb__quoteOverlay[hidden],
+.ucp-pcb__quoteModal[hidden] { display: none !important; }
+
+.ucp-pcb__quoteOverlay{
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0,0,0,.45);
+}
+
+.ucp-pcb__quoteModal{
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2001;
+
+  width: min(520px, calc(100% - 24px));
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid rgba(0,0,0,.12);
+  box-shadow: 0 18px 60px rgba(0,0,0,.25);
+
+  padding: 14px;
+}
+
+.ucp-pcb__quoteModalHead{
+  display:flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.ucp-pcb__quoteClose{
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 22px;
+  line-height: 1;
+  padding: 2px 8px;
+}
+
+.ucp-pcb__quoteBlock{
+  border: 1px solid rgba(0,0,0,.10);
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: rgba(0,0,0,.02);
+}
+
+.ucp-pcb__quoteLabel{ font-size: 12px; opacity: .75; margin-bottom: 8px; }
+
+.ucp-pcb__quoteCodeRow{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ucp-pcb__quoteCode{
+  font-weight: 900;
+  font-size: 16px;
+  background: #fff;
+  border: 1px dashed rgba(0,0,0,.2);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: inline-block;
+}
+
+.ucp-pcb__quoteHint{ margin-top: 8px; font-size: 12px; opacity: .75; }
+
+.ucp-pcb__quoteLinkRow{
+  display:flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.ucp-pcb__quoteLink{
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.18);
+  padding: 10px 12px;
+  font-size: 12px;
+}
+
+.ucp-pcb__quoteActions{ display:flex; justify-content: flex-end; }
+
+/* Promo discovery modal */
+.ucp-pcb__promoDiscoveryModal{
+  width: min(620px, calc(100% - 24px));
+  max-height: min(760px, calc(100vh - 24px));
+  overflow: auto;
+}
+
+.ucp-pcb__promoDiscoveryHead strong{
+  display:block;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.ucp-pcb__promoDiscoveryEyebrow{
+  margin-bottom: 2px;
+  color: rgba(0,0,0,.56);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.ucp-pcb__promoDiscoveryImage{
+  margin-bottom: 12px;
+  border: 1px solid rgba(0,0,0,.10);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #f7f7f7;
+}
+
+.ucp-pcb__promoDiscoveryImage img{
+  display:block;
+  width:100%;
+  max-height: 260px;
+  object-fit: cover;
+}
+
+.ucp-pcb__promoDiscoveryBody{
+  display:grid;
+  gap: 10px;
+}
+
+.ucp-pcb__promoDiscoveryTopline{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+}
+
+.ucp-pcb__promoDiscoveryBadge{
+  display:inline-flex;
+  align-items:center;
+  min-height: 26px;
+  padding: 5px 9px;
+  border: 1px solid rgba(0,0,0,.12);
+  border-radius: 999px;
+  color:#333;
+  background: rgba(0,0,0,.03);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ucp-pcb__promoDiscoveryDiscount{
+  color:#111;
+  font-size: 18px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ucp-pcb__promoDiscoveryTitle{
+  margin: 0;
+  color:#111;
+  font-size: 24px;
+  line-height: 1.08;
+}
+
+.ucp-pcb__promoDiscoveryDesc,
+.ucp-pcb__promoDiscoveryTerms{
+  margin: 0;
+  color: rgba(0,0,0,.68);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.ucp-pcb__promoDiscoveryReqTitle{
+  margin-top: 2px;
+  color: rgba(0,0,0,.58);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.ucp-pcb__promoDiscoveryReqs{
+  margin: 0;
+  padding: 0;
+  display:grid;
+  gap: 6px;
+  list-style: none;
+}
+
+.ucp-pcb__promoDiscoveryReqs li{
+  padding: 8px 10px;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 10px;
+  background: rgba(0,0,0,.025);
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.ucp-pcb__promoDiscoveryNav{
+  display:grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items:center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ucp-pcb__promoDiscoveryNav span{
+  min-width: 48px;
+  text-align:center;
+  color: rgba(0,0,0,.58);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ucp-pcb__promoDiscoveryActions{
+  display:flex;
+  justify-content:flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+@media (max-width: 640px){
+  .ucp-pcb__promoDiscoveryModal{
+    width: calc(100% - 20px);
+    padding: 12px;
+  }
+
+  .ucp-pcb__promoDiscoveryImage img{
+    max-height: 200px;
+  }
+
+  .ucp-pcb__promoDiscoveryTitle{
+    font-size: 20px;
+  }
+
+  .ucp-pcb__promoDiscoveryActions{
+    display:grid;
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Approval payment QR modal */
+.ucp-pcb__payOverlay[hidden],
+.ucp-pcb__payModal[hidden] { display: none !important; }
+
+.ucp-pcb__payOverlay{
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  background: rgba(0,0,0,.45);
+}
+
+.ucp-pcb__payModal{
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2101;
+
+  width: min(560px, calc(100% - 24px));
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid rgba(0,0,0,.12);
+  box-shadow: 0 18px 60px rgba(0,0,0,.25);
+
+  padding: 14px;
+  max-height: 84vh;
+  overflow: auto;
+}
+
+.ucp-pcb__payHead{
+  display:flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.ucp-pcb__payClose{
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 22px;
+  line-height: 1;
+  padding: 2px 8px;
+}
+
+.ucp-pcb__payMethods{
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 769px) {
+  .ucp-pcb__payMethods{
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.ucp-pcb__payCard{
+  border: 1px solid rgba(0,0,0,.10);
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(0,0,0,.02);
+  display: grid;
+  gap: 10px;
+}
+
+.ucp-pcb__payCardHead{
+  display:flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ucp-pcb__payLogo{
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.08);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.ucp-pcb__payLogo img{
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.ucp-pcb__payName{ font-weight: 800; font-size: 14px; }
+.ucp-pcb__payMeta{ font-size: 12px; opacity: .75; }
+.ucp-pcb__payAmount{ font-size: 13px; font-weight: 700; text-align: center; }
+
+.ucp-pcb__copyAccountBlock{
+  width: min(320px, 100%);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ucp-pcb__copyAccountName{
+  font-size: 13px;
+  font-weight: 700;
+  color: #111;
+}
+
+.ucp-pcb__copyAccountBtn{
+  width: 100%;
+  border: 1px solid rgba(0,0,0,.12);
+  border-radius: 12px;
+  background: #fff;
+  color: #111;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+
+.ucp-pcb__copyAccountBtn:hover{
+  border-color: rgba(0,0,0,.24);
+  background: #f7f7f7;
+}
+
+.ucp-pcb__copyAccountBtn:focus-visible{
+  outline: none;
+  border-color: #111;
+  box-shadow: 0 0 0 3px rgba(17,17,17,.12);
+}
+
+.ucp-pcb__copyAccountBtn:active{
+  transform: translateY(1px);
+}
+
+.ucp-pcb__copyAccountBtn[disabled]{
+  opacity: .6;
+  cursor: default;
+}
+
+.ucp-pcb__copyAccountMain{
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ucp-pcb__copyAccountLabel{
+  font-size: 11px;
+  line-height: 1.2;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  opacity: .65;
+}
+
+.ucp-pcb__copyAccountNumber{
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.25;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+
+.ucp-pcb__copyAccountAction{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ucp-pcb__copyAccountIcon{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ucp-pcb__copyAccountIcon svg{
+  display: block;
+}
+
+.ucp-pcb__copyAccountBtn[data-copy-state="copied"]{
+  border-color: #2e7d32;
+  background: #f3fbf4;
+  color: #1b5e20;
+}
+
+.ucp-pcb__copyAccountBtn[data-copy-state="error"]{
+  border-color: #b00020;
+  background: #fff5f6;
+  color: #8f0020;
+}
+
+.ucp-pcb__payQr{
+  display: block;
+  width: min(320px, 100%);
+  max-width: 320px;
+  margin: 0 auto;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.08);
+  background: #fff;
+}
+
+.ucp-pcb__payLinks{
+  display: grid;
+  gap: 8px;
+}
+
+.ucp-pcb__payLink{
+  text-align: center;
+  text-decoration: none;
+}
+
+.ucp-pcb__payActions{
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ucp-pcb__payNote{
+  margin-top: 8px;
+  font-size: 12px;
+  opacity: .75;
+}
+
+@media (max-width: 768px){
+  .ucp-pcb__copyAccountBtn{
+    padding: 12px;
+  }
+
+  .ucp-pcb__copyAccountNumber{
+    font-size: 15px;
+  }
+}
+
+/* Approval reopen button */
+.ucp-pcb .ucp-pcb__approvalReopen{
+  position: fixed;
+  right: 12px;
+  bottom: 90px;
+  z-index: 2100;
+  border-radius: 999px;
+  padding: 10px 14px;
+}
+
+@media (min-width: 990px){
+  .ucp-pcb .ucp-pcb__approvalReopen{ bottom: 18px; }
+}
+
+/* Action hints */
+.ucp-pcb__actionWithHint{
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: stretch;
+}
+
+.ucp-pcb__microHint{
+  font-size: 11px;
+  opacity: .7;
+  line-height: 1.2;
+}
+
+/* Onboarding modal */
+.ucp-pcb__onboardOverlay[hidden],
+.ucp-pcb__onboardModal[hidden] { display: none !important; }
+
+.ucp-pcb__onboardOverlay{
+  position: fixed;
+  inset: 0;
+  z-index: 2050;
+  background: rgba(0,0,0,.45);
+}
+
+.ucp-pcb__onboardModal{
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2051;
+
+  width: min(520px, calc(100% - 24px));
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid rgba(0,0,0,.12);
+  box-shadow: 0 18px 60px rgba(0,0,0,.25);
+  padding: 14px;
+}
+
+.ucp-pcb__onboardHead{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.ucp-pcb__onboardBullets{
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.ucp-pcb__onboardGifWrap{
+  margin-top: 10px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,.08);
+  background: #fff;
+}
+
+.ucp-pcb__onboardGif{
+  display: block;
+  width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+}
+
+.ucp-pcb__onboardActions{
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* Highlight pulse */
+.ucp-pcb__flash{
+  animation: ucpPcbFlash 1.5s ease-out;
+}
+
+@keyframes ucpPcbFlash {
+  0% { box-shadow: 0 0 0 0 rgba(17,17,17,.35); }
+  60% { box-shadow: 0 0 0 10px rgba(17,17,17,0); }
+  100% { box-shadow: 0 0 0 0 rgba(17,17,17,0); }
+}

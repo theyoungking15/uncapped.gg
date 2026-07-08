@@ -1,0 +1,1104 @@
+{% assign used_listing_definition = shop.metaobjects['used_listing'] %}
+{% assign used_listing_values = blank %}
+{% if used_listing_definition != blank %}
+  {% assign used_listing_values = used_listing_definition.values %}
+{% endif %}
+{% assign used_listing_available = false %}
+{% if used_listing_definition != blank %}
+  {% assign used_listing_available = true %}
+{% endif %}
+{% assign section_width = section.settings.section_width | default: 'page-width' %}
+
+<section
+  class="ua-approved section-{{ section.id }}-padding {% if section_width == 'page-width' %}page-width{% else %}ua-approved--full-width{% endif %}"
+  data-approved-section
+>
+  <div class="ua-approved__wrap">
+    <header class="ua-approved__hero">
+      <div class="ua-approved__heroCopy">
+        <p class="ua-approved__eyebrow">{{ section.settings.eyebrow }}</p>
+        <h1 class="ua-approved__title">{{ section.settings.heading }}</h1>
+        {% if section.settings.subheading != blank %}
+          <p class="ua-approved__subheading">{{ section.settings.subheading }}</p>
+        {% endif %}
+      </div>
+      {% if section.settings.cta_label != blank and section.settings.cta_link != blank %}
+        <a class="ua-approved__cta" href="{{ section.settings.cta_link }}">{{ section.settings.cta_label }}</a>
+      {% endif %}
+    </header>
+
+    {% assign rendered_count = 0 %}
+    <section class="ua-approved__controls" data-approved-controls hidden>
+      <div class="ua-approved__filters">
+        <label class="ua-approved__filter">
+          <span>Search</span>
+          <input type="search" placeholder="Search title, brand, or location" data-approved-search>
+        </label>
+        <label class="ua-approved__filter">
+          <span>Brand</span>
+          <select data-approved-brand>
+            <option value="">All brands</option>
+          </select>
+        </label>
+        <label class="ua-approved__filter">
+          <span>Condition</span>
+          <select data-approved-condition>
+            <option value="">All conditions</option>
+          </select>
+        </label>
+        <label class="ua-approved__filter">
+          <span>Location</span>
+          <select data-approved-location>
+            <option value="">All locations</option>
+          </select>
+        </label>
+        <label class="ua-approved__filter">
+          <span>Sort</span>
+          <select data-approved-sort>
+            <option value="latest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="price_asc">Price: low to high</option>
+            <option value="price_desc">Price: high to low</option>
+            <option value="title_asc">Title: A to Z</option>
+          </select>
+        </label>
+        <button type="button" class="ua-approved__filterReset" data-approved-reset>Reset</button>
+      </div>
+      <p class="ua-approved__results" data-approved-results></p>
+    </section>
+
+    <div class="ua-approved__grid" data-approved-grid>
+      {% for listing in used_listing_values %}
+        {% assign status_value = listing.status.value | default: listing.status %}
+        {% unless status_value contains 'Approved' %}
+          {% continue %}
+        {% endunless %}
+
+        {% if rendered_count >= section.settings.max_cards %}
+          {% break %}
+        {% endif %}
+
+        {% assign rendered_count = rendered_count | plus: 1 %}
+
+        {% assign referenced_product = blank %}
+        {% if listing.referenced_product != blank %}
+          {% assign referenced_product = listing.referenced_product.value | default: listing.referenced_product %}
+        {% endif %}
+
+        {% assign listing_title = listing.manual_title.value | default: listing.manual_title | strip %}
+        {% if listing_title == blank and referenced_product != blank %}
+          {% assign listing_title = referenced_product.title %}
+        {% endif %}
+        {% if listing_title == blank %}
+          {% assign listing_title = 'Approved listing' %}
+        {% endif %}
+
+        {% assign photo_entries = blank %}
+        {% assign photo_entry_count = 0 %}
+        {% if listing.photos != blank %}
+          {% assign photo_entries = listing.photos.value | default: listing.photos %}
+          {% assign photo_entry_count = photo_entries.count | default: photo_entries.size | plus: 0 %}
+        {% endif %}
+
+        {% assign listing_link = '' %}
+        {% if referenced_product != blank and referenced_product.url != blank %}
+          {% assign listing_link = referenced_product.url %}
+        {% elsif listing.external_product_url != blank %}
+          {% assign listing_link = listing.external_product_url.value | default: listing.external_product_url %}
+        {% endif %}
+
+        {% assign asking_price_raw = listing.asking_price.value | default: listing.asking_price %}
+        {% assign asking_price_number = asking_price_raw | plus: 0 %}
+        {% assign condition_grade = listing.condition_grade.value | default: listing.condition_grade %}
+        {% assign city_region = listing.city_region.value | default: listing.city_region %}
+        {% assign usage_notes = listing.usage_notes.value | default: listing.usage_notes %}
+        {% assign issue_disclosures = listing.issue_disclosures.value | default: listing.issue_disclosures %}
+        {% assign date_listed = listing.date_listed.value | default: listing.date_listed %}
+        {% assign brand_node = blank %}
+        {% if listing.brand != blank %}
+          {% assign brand_node = listing.brand.value | default: listing.brand %}
+        {% endif %}
+        {% assign brand_name = brand_node.displayName | default: brand_node.name.value | default: brand_node.name | default: brand_node.system.handle | strip %}
+
+<article
+          class="ua-approved__card"
+          data-approved-card
+          data-title="{{ listing_title | downcase | escape }}"
+          data-brand="{{ brand_name | downcase | escape }}"
+          data-condition="{{ condition_grade | downcase | escape }}"
+          data-location="{{ city_region | downcase | escape }}"
+          data-price="{{ asking_price_number }}"
+          data-date="{{ date_listed | escape }}"
+          data-search="{{ listing_title | append: ' ' | append: brand_name | append: ' ' | append: city_region | downcase | escape }}"
+        >
+          <div class="ua-approved__mediaShell">
+            <div class="ua-approved__media">
+              {% if photo_entry_count > 0 %}
+                {% for photo_entry in photo_entries limit: 1 %}
+                  <img
+                    class="ua-approved__mediaImage"
+                    data-gallery-main-image
+                    src="{{ photo_entry | image_url: width: 900 }}"
+                    alt="{{ listing_title | escape }}"
+                    loading="lazy"
+                    width="450"
+                    height="338"
+                  >
+                {% endfor %}
+              {% elsif referenced_product != blank and referenced_product.featured_image != blank %}
+                <img
+                  class="ua-approved__mediaImage"
+                  src="{{ referenced_product.featured_image | image_url: width: 900 }}"
+                  alt="{{ listing_title | escape }}"
+                  loading="lazy"
+                  width="450"
+                  height="338"
+                >
+              {% else %}
+                <div class="ua-approved__mediaFallback">
+                  <span>Approved</span>
+                  <strong>Upgrade Assist</strong>
+                </div>
+              {% endif %}
+            </div>
+
+            {% if photo_entry_count > 1 %}
+              <div class="ua-approved__thumbs" aria-label="{{ listing_title | escape }} gallery thumbnails">
+                {% for photo_entry in photo_entries %}
+                  {% assign photo_alt = listing_title | append: ' photo ' | append: forloop.index %}
+                  <button
+                    type="button"
+                    class="ua-approved__thumb{% if forloop.first %} is-active{% endif %}"
+                    data-image-src="{{ photo_entry | image_url: width: 900 | escape }}"
+                    data-image-alt="{{ photo_alt | escape }}"
+                    aria-label="Show photo {{ forloop.index }} of {{ photo_entry_count }}"
+                    aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}"
+                  >
+                    <img
+                      src="{{ photo_entry | image_url: width: 160 }}"
+                      alt=""
+                      loading="lazy"
+                      width="80"
+                      height="80"
+                    >
+                  </button>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="ua-approved__body">
+            <div class="ua-approved__topline">
+              <span class="ua-approved__badge">Approved used part</span>
+              {% if date_listed != blank %}
+                <span class="ua-approved__date">Listed {{ date_listed | date: '%b %d, %Y' }}</span>
+              {% endif %}
+            </div>
+
+            <h2 class="ua-approved__cardTitle">{{ listing_title }}</h2>
+
+            <div class="ua-approved__price">
+              {% if asking_price_number > 0 %}
+                {{ asking_price_number | times: 100 | money_without_trailing_zeros }}
+              {% else %}
+                Price on request
+              {% endif %}
+            </div>
+
+            <div class="ua-approved__meta">
+              {% if brand_name != blank %}
+                <span>{{ brand_name }}</span>
+              {% endif %}
+              {% if condition_grade != blank %}
+                <span>{{ condition_grade }}</span>
+              {% endif %}
+              {% if city_region != blank %}
+                <span>{{ city_region }}</span>
+              {% endif %}
+              {% if referenced_product != blank %}
+                <span>Catalog-linked</span>
+              {% endif %}
+            </div>
+
+            {% if section.settings.show_usage_notes and usage_notes != blank %}
+              <div class="ua-approved__copy">
+                <strong>Usage notes</strong>
+                <p>{{ usage_notes }}</p>
+              </div>
+            {% endif %}
+
+            {% if section.settings.show_issue_disclosures and issue_disclosures != blank %}
+              <div class="ua-approved__copy">
+                <strong>Disclosures</strong>
+                <p>{{ issue_disclosures }}</p>
+              </div>
+            {% endif %}
+
+            <div class="ua-approved__actions">
+              <button type="button" class="ua-approved__detailButton" data-approved-detail-open>View details</button>
+              {% if listing_link != blank %}
+                <a class="ua-approved__link" href="{{ listing_link }}">
+                  {% if referenced_product != blank %}
+                    View reference product
+                  {% else %}
+                    View external reference
+                  {% endif %}
+                </a>
+              {% endif %}
+            </div>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+
+    <div class="ua-approved__filteredEmpty" data-approved-filtered-empty hidden>
+      <h2>No listings match the current filters</h2>
+      <p>Try clearing one or more filters to see more approved listings.</p>
+    </div>
+
+    {% if rendered_count == 0 %}
+      <div class="ua-approved__empty">
+        {% if used_listing_available %}
+          <h2>{{ section.settings.empty_heading }}</h2>
+          <p>{{ section.settings.empty_text }}</p>
+        {% else %}
+          <h2>Used listings are not exposed to the storefront yet</h2>
+          <p>Enable Online Store / storefront access on the <code>used_listing</code> metaobject definition, then refresh this page.</p>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    <div class="ua-approved__modal" data-approved-modal hidden>
+      <div class="ua-approved__modalBackdrop" data-approved-modal-close></div>
+      <div class="ua-approved__modalDialog" role="dialog" aria-modal="true" aria-label="Approved listing details">
+        <div class="ua-approved__modalHead">
+          <strong>Listing details</strong>
+          <button type="button" class="ua-approved__modalClose" data-approved-modal-close>Close</button>
+        </div>
+        <div class="ua-approved__modalBody" data-approved-modal-body></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .ua-approved {
+    --ua-approved-ink: #333333;
+    --ua-approved-muted: rgba(51, 51, 51, 0.68);
+    --ua-approved-line: rgba(51, 51, 51, 0.12);
+    --ua-approved-paper: #f7f7f7;
+    --ua-approved-card: #ffffff;
+    --ua-approved-accent: #333333;
+    --ua-approved-accent-soft: rgba(51, 51, 51, 0.08);
+    --ua-approved-shadow: 0 20px 60px rgba(51, 51, 51, 0.08);
+    padding-top: 32px;
+    padding-bottom: 48px;
+  }
+
+  .ua-approved__wrap {
+    display: grid;
+    gap: 24px;
+  }
+
+  .ua-approved__controls {
+    display: grid;
+    gap: 12px;
+    padding: 18px 20px;
+    border: 1px solid var(--ua-approved-line);
+    border-radius: 22px;
+    background: #fff;
+    box-shadow: var(--ua-approved-shadow);
+  }
+
+  .ua-approved__filters {
+    display: grid;
+    grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(150px, 1fr)) auto;
+    gap: 12px;
+  }
+
+  .ua-approved__filter {
+    display: grid;
+    gap: 6px;
+  }
+
+  .ua-approved__filter span {
+    font: 700 11px/1 Inter, "Segoe UI", Arial, sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(51, 51, 51, 0.68);
+  }
+
+  .ua-approved__filter input,
+  .ua-approved__filter select {
+    min-height: 42px;
+    border: 1px solid rgba(51, 51, 51, 0.14);
+    border-radius: 12px;
+    padding: 0 12px;
+    background: #fff;
+    color: var(--ua-approved-ink);
+    font: 400 14px/1 "Segoe UI", Arial, sans-serif;
+  }
+
+  .ua-approved__filterReset {
+    align-self: end;
+    min-height: 42px;
+    border: 1px solid rgba(51, 51, 51, 0.14);
+    border-radius: 12px;
+    padding: 0 14px;
+    background: #fff;
+    color: var(--ua-approved-ink);
+    font: 600 13px/1 Inter, "Segoe UI", Arial, sans-serif;
+    cursor: pointer;
+  }
+
+  .ua-approved__results {
+    margin: 0;
+    color: var(--ua-approved-muted);
+    font: 400 13px/1.5 "Segoe UI", Arial, sans-serif;
+  }
+
+  .ua-approved--full-width .ua-approved__wrap {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .ua-approved__hero {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: end;
+    padding: 24px 28px;
+    border: 1px solid var(--ua-approved-line);
+    border-radius: 28px;
+    background:
+      radial-gradient(circle at top right, rgba(51, 51, 51, 0.14), transparent 34%),
+      radial-gradient(circle at bottom left, rgba(51, 51, 51, 0.08), transparent 38%),
+      linear-gradient(180deg, #ffffff 0%, #f3f3f3 100%);
+    box-shadow: var(--ua-approved-shadow);
+  }
+
+  .ua-approved__heroCopy {
+    max-width: 760px;
+  }
+
+  .ua-approved__eyebrow {
+    margin: 0 0 8px;
+    font: 700 11px/1.1 Inter, "Segoe UI", Arial, sans-serif;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ua-approved-accent);
+  }
+
+  .ua-approved__title {
+    margin: 0;
+    font: 700 clamp(28px, 4vw, 44px)/1.02 Inter, "Segoe UI", Arial, sans-serif;
+    color: var(--ua-approved-ink);
+  }
+
+  .ua-approved__subheading {
+    margin: 12px 0 0;
+    max-width: 62ch;
+    font: 400 15px/1.65 "Segoe UI", Arial, sans-serif;
+    color: var(--ua-approved-muted);
+  }
+
+  .ua-approved__cta,
+  .ua-approved__link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    text-decoration: none;
+    transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+  }
+
+  .ua-approved__cta {
+    padding: 12px 18px;
+    background: var(--ua-approved-accent);
+    color: #fff;
+    font: 600 14px/1 Inter, "Segoe UI", Arial, sans-serif;
+    box-shadow: 0 12px 32px rgba(51, 51, 51, 0.2);
+  }
+
+  .ua-approved__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .ua-approved__card {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    overflow: hidden;
+    border: 1px solid var(--ua-approved-line);
+    border-radius: 24px;
+    background: var(--ua-approved-card);
+    box-shadow: var(--ua-approved-shadow);
+  }
+
+  .ua-approved__mediaShell {
+    display: grid;
+    gap: 10px;
+    padding: 0 0 14px;
+    background: linear-gradient(180deg, #fbfbfb 0%, #f6f6f6 100%);
+  }
+
+  .ua-approved__media {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: linear-gradient(180deg, #fbfbfb 0%, #f1f1f1 100%);
+  }
+
+  .ua-approved__media img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .ua-approved__thumbs {
+    display: flex;
+    gap: 8px;
+    padding: 0 14px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .ua-approved__thumb {
+    flex: 0 0 auto;
+    width: 64px;
+    height: 64px;
+    padding: 0;
+    border: 1px solid rgba(51, 51, 51, 0.14);
+    border-radius: 14px;
+    overflow: hidden;
+    background: #fff;
+    cursor: pointer;
+    transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .ua-approved__thumb img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .ua-approved__thumb.is-active {
+    border-color: #333333;
+    box-shadow: 0 0 0 2px rgba(51, 51, 51, 0.08);
+  }
+
+  .ua-approved__mediaFallback {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    padding: 20px;
+    text-align: center;
+    color: var(--ua-approved-ink);
+    background:
+      radial-gradient(circle at top left, rgba(51, 51, 51, 0.14), transparent 30%),
+      linear-gradient(180deg, #fafafa 0%, #efefef 100%);
+  }
+
+  .ua-approved__mediaFallback span {
+    display: block;
+    font: 700 11px/1 Inter, "Segoe UI", Arial, sans-serif;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ua-approved-accent);
+  }
+
+  .ua-approved__mediaFallback strong {
+    display: block;
+    margin-top: 8px;
+    font: 700 22px/1.1 Inter, "Segoe UI", Arial, sans-serif;
+  }
+
+  .ua-approved__body {
+    display: grid;
+    align-content: start;
+    gap: 14px;
+    padding: 18px;
+  }
+
+  .ua-approved__topline {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .ua-approved__badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 7px 10px;
+    border-radius: 999px;
+    background: var(--ua-approved-accent-soft);
+    color: var(--ua-approved-accent);
+    font: 700 11px/1 Inter, "Segoe UI", Arial, sans-serif;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .ua-approved__date {
+    font: 400 12px/1.4 "Segoe UI", Arial, sans-serif;
+    color: var(--ua-approved-muted);
+  }
+
+  .ua-approved__cardTitle {
+    margin: 0;
+    font: 700 22px/1.15 Inter, "Segoe UI", Arial, sans-serif;
+    color: var(--ua-approved-ink);
+  }
+
+  .ua-approved__price {
+    font: 700 26px/1 Inter, "Segoe UI", Arial, sans-serif;
+    color: var(--ua-approved-ink);
+  }
+
+  .ua-approved__meta {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .ua-approved__meta span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #f2f2f2;
+    color: rgba(51, 51, 51, 0.82);
+    font: 600 12px/1 "Segoe UI", Arial, sans-serif;
+  }
+
+  .ua-approved__copy strong {
+    display: block;
+    margin-bottom: 6px;
+    font: 700 12px/1.2 Inter, "Segoe UI", Arial, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(51, 51, 51, 0.72);
+  }
+
+  .ua-approved__copy p {
+    margin: 0;
+    font: 400 14px/1.6 "Segoe UI", Arial, sans-serif;
+    color: rgba(51, 51, 51, 0.82);
+  }
+
+  .ua-approved__actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .ua-approved__detailButton {
+    border: 1px solid rgba(51, 51, 51, 0.14);
+    border-radius: 999px;
+    padding: 11px 14px;
+    background: #333333;
+    color: #fff;
+    font: 600 13px/1 Inter, "Segoe UI", Arial, sans-serif;
+    cursor: pointer;
+    transition: transform 160ms ease, box-shadow 160ms ease;
+  }
+
+  .ua-approved__link {
+    width: fit-content;
+    padding: 11px 14px;
+    border: 1px solid rgba(51, 51, 51, 0.14);
+    background: #fff;
+    color: var(--ua-approved-ink);
+    font: 600 13px/1 Inter, "Segoe UI", Arial, sans-serif;
+  }
+
+  .ua-approved__cta:hover,
+  .ua-approved__link:hover,
+  .ua-approved__detailButton:hover {
+    transform: translateY(-1px);
+  }
+
+  .ua-approved__thumb:hover {
+    transform: translateY(-1px);
+  }
+
+  .ua-approved__empty {
+    padding: 32px 28px;
+    border: 1px dashed rgba(51, 51, 51, 0.16);
+    border-radius: 24px;
+    background: var(--ua-approved-paper);
+    text-align: center;
+  }
+
+  .ua-approved__empty h2 {
+    margin: 0 0 8px;
+    font: 700 24px/1.12 Inter, "Segoe UI", Arial, sans-serif;
+    color: var(--ua-approved-ink);
+  }
+
+  .ua-approved__empty p {
+    margin: 0;
+    font: 400 14px/1.6 "Segoe UI", Arial, sans-serif;
+    color: var(--ua-approved-muted);
+  }
+
+  .ua-approved__filteredEmpty {
+    padding: 28px 24px;
+    border: 1px dashed rgba(51, 51, 51, 0.16);
+    border-radius: 22px;
+    background: #fff;
+    text-align: center;
+  }
+
+  .ua-approved__filteredEmpty h2 {
+    margin: 0 0 8px;
+    font: 700 22px/1.12 Inter, "Segoe UI", Arial, sans-serif;
+    color: var(--ua-approved-ink);
+  }
+
+  .ua-approved__filteredEmpty p {
+    margin: 0;
+    color: var(--ua-approved-muted);
+  }
+
+  .ua-approved__modal[hidden] {
+    display: none !important;
+  }
+
+  .ua-approved__modal {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+  }
+
+  .ua-approved__modalBackdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(17, 17, 17, 0.56);
+  }
+
+  .ua-approved__modalDialog {
+    position: relative;
+    z-index: 1;
+    width: min(980px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
+    margin: 16px auto;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    overflow: hidden;
+    border-radius: 24px;
+    background: #fff;
+    box-shadow: 0 26px 80px rgba(17, 17, 17, 0.28);
+  }
+
+  .ua-approved__modalHead {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    padding: 16px 18px;
+    border-bottom: 1px solid rgba(51, 51, 51, 0.1);
+  }
+
+  .ua-approved__modalClose {
+    border: 1px solid rgba(51, 51, 51, 0.14);
+    border-radius: 999px;
+    padding: 8px 12px;
+    background: #fff;
+    color: var(--ua-approved-ink);
+    font: 600 12px/1 Inter, "Segoe UI", Arial, sans-serif;
+    cursor: pointer;
+  }
+
+  .ua-approved__modalBody {
+    overflow: auto;
+    padding: 18px;
+    background: #f7f7f7;
+  }
+
+  .ua-approved__modalBody .ua-approved__card {
+    margin: 0;
+  }
+
+  .ua-approved__modalBody .ua-approved__cardTitle {
+    font-size: 28px;
+  }
+
+  .ua-approved__modalBody .ua-approved__detailButton {
+    display: none;
+  }
+
+  @media screen and (max-width: 989px) {
+    .ua-approved__grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .ua-approved__filters {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media screen and (max-width: 749px) {
+    .ua-approved--full-width .ua-approved__wrap {
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+
+    .ua-approved__hero {
+      grid-template-columns: 1fr;
+      padding: 20px;
+    }
+
+    .ua-approved__grid {
+      grid-template-columns: 1fr;
+    }
+
+    .ua-approved__filters {
+      grid-template-columns: 1fr;
+    }
+
+    .ua-approved__hero {
+      display: grid;
+      align-items: start;
+    }
+
+    .ua-approved__cta {
+      width: 100%;
+    }
+
+    .ua-approved__thumbs {
+      padding: 0 12px;
+    }
+
+    .ua-approved__actions {
+      flex-direction: column;
+    }
+
+    .ua-approved__detailButton,
+    .ua-approved__link {
+      width: 100%;
+    }
+  }
+</style>
+
+<script>
+  (function () {
+    function normalizeValue(value) {
+      return String(value || '').trim().toLowerCase();
+    }
+
+    function setApprovedGalleryImage(button) {
+      if (!button) return;
+
+      var shell = button.closest('.ua-approved__mediaShell');
+      if (!shell) return;
+
+      var mainImage = shell.querySelector('[data-gallery-main-image]');
+      if (!mainImage) return;
+
+      var nextSrc = button.getAttribute('data-image-src');
+      if (!nextSrc) return;
+
+      var nextAlt = button.getAttribute('data-image-alt') || mainImage.alt || '';
+
+      if (mainImage.getAttribute('src') !== nextSrc) {
+        mainImage.setAttribute('src', nextSrc);
+      }
+      mainImage.setAttribute('alt', nextAlt);
+
+      shell.querySelectorAll('.ua-approved__thumb').forEach(function (entry) {
+        var isActive = entry === button;
+        entry.classList.toggle('is-active', isActive);
+        entry.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      });
+    }
+
+    function populateSelectOptions(select, values) {
+      if (!select) return;
+
+      values.forEach(function (value) {
+        var option = document.createElement('option');
+        option.value = value;
+        option.textContent = value;
+        select.appendChild(option);
+      });
+    }
+
+    function sortCards(cards, mode) {
+      var nextCards = cards.slice();
+
+      nextCards.sort(function (a, b) {
+        var aTitle = a.getAttribute('data-title') || '';
+        var bTitle = b.getAttribute('data-title') || '';
+        var aPrice = Number(a.getAttribute('data-price') || 0);
+        var bPrice = Number(b.getAttribute('data-price') || 0);
+        var aDate = Date.parse(a.getAttribute('data-date') || 0) || 0;
+        var bDate = Date.parse(b.getAttribute('data-date') || 0) || 0;
+
+        if (mode === 'oldest') return aDate - bDate;
+        if (mode === 'price_asc') return aPrice - bPrice;
+        if (mode === 'price_desc') return bPrice - aPrice;
+        if (mode === 'title_asc') return aTitle.localeCompare(bTitle);
+        return bDate - aDate;
+      });
+
+      return nextCards;
+    }
+
+    function initApprovedSection(root) {
+      if (!root || root.__uaApprovedBound) return;
+      root.__uaApprovedBound = true;
+
+      var grid = root.querySelector('[data-approved-grid]');
+      var cards = Array.from(root.querySelectorAll('[data-approved-card]'));
+      var controls = root.querySelector('[data-approved-controls]');
+      var searchInput = root.querySelector('[data-approved-search]');
+      var brandSelect = root.querySelector('[data-approved-brand]');
+      var conditionSelect = root.querySelector('[data-approved-condition]');
+      var locationSelect = root.querySelector('[data-approved-location]');
+      var sortSelect = root.querySelector('[data-approved-sort]');
+      var resetButton = root.querySelector('[data-approved-reset]');
+      var resultsText = root.querySelector('[data-approved-results]');
+      var filteredEmpty = root.querySelector('[data-approved-filtered-empty]');
+      var modal = root.querySelector('[data-approved-modal]');
+      var modalBody = root.querySelector('[data-approved-modal-body]');
+
+      if (!grid || !cards.length) return;
+
+      if (controls) {
+        controls.hidden = false;
+      }
+
+      populateSelectOptions(
+        brandSelect,
+        Array.from(
+          new Set(
+            cards
+              .map(function (card) { return card.getAttribute('data-brand') || ''; })
+              .filter(Boolean)
+          )
+        ).sort()
+      );
+
+      populateSelectOptions(
+        conditionSelect,
+        Array.from(
+          new Set(
+            cards
+              .map(function (card) { return card.getAttribute('data-condition') || ''; })
+              .filter(Boolean)
+          )
+        ).sort()
+      );
+
+      populateSelectOptions(
+        locationSelect,
+        Array.from(
+          new Set(
+            cards
+              .map(function (card) { return card.getAttribute('data-location') || ''; })
+              .filter(Boolean)
+          )
+        ).sort()
+      );
+
+      function closeModal() {
+        if (!modal) return;
+        modal.hidden = true;
+        if (modalBody) modalBody.innerHTML = '';
+        document.documentElement.style.overflow = '';
+      }
+
+      function openModal(card) {
+        if (!modal || !modalBody || !card) return;
+        modalBody.innerHTML = '';
+        modalBody.appendChild(card.cloneNode(true));
+        modal.hidden = false;
+        document.documentElement.style.overflow = 'hidden';
+      }
+
+      function applyFilters() {
+        var query = normalizeValue(searchInput && searchInput.value);
+        var brand = normalizeValue(brandSelect && brandSelect.value);
+        var condition = normalizeValue(conditionSelect && conditionSelect.value);
+        var location = normalizeValue(locationSelect && locationSelect.value);
+        var sortMode = normalizeValue(sortSelect && sortSelect.value) || 'latest';
+
+        var visibleCards = cards.filter(function (card) {
+          var matches =
+            (!query || normalizeValue(card.getAttribute('data-search')).includes(query)) &&
+            (!brand || normalizeValue(card.getAttribute('data-brand')) === brand) &&
+            (!condition || normalizeValue(card.getAttribute('data-condition')) === condition) &&
+            (!location || normalizeValue(card.getAttribute('data-location')) === location);
+
+          card.hidden = !matches;
+          return matches;
+        });
+
+        sortCards(visibleCards, sortMode).forEach(function (card) {
+          grid.appendChild(card);
+        });
+
+        cards.forEach(function (card) {
+          if (card.hidden) {
+            grid.appendChild(card);
+          }
+        });
+
+        if (filteredEmpty) {
+          filteredEmpty.hidden = visibleCards.length > 0;
+        }
+
+        if (resultsText) {
+          resultsText.textContent = 'Showing ' + visibleCards.length + ' of ' + cards.length + ' approved listings.';
+        }
+      }
+
+      document.addEventListener('click', function (event) {
+        var thumbButton = event.target.closest('.ua-approved__thumb');
+        if (thumbButton && root.contains(thumbButton)) {
+          event.preventDefault();
+          setApprovedGalleryImage(thumbButton);
+          return;
+        }
+
+        var detailButton = event.target.closest('[data-approved-detail-open]');
+        if (detailButton && root.contains(detailButton)) {
+          event.preventDefault();
+          openModal(detailButton.closest('[data-approved-card]'));
+          return;
+        }
+
+        var closeButton = event.target.closest('[data-approved-modal-close]');
+        if (closeButton && root.contains(closeButton)) {
+          event.preventDefault();
+          closeModal();
+        }
+      });
+
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && modal && !modal.hidden) {
+          closeModal();
+        }
+      });
+
+      [searchInput, brandSelect, conditionSelect, locationSelect, sortSelect].forEach(function (input) {
+        if (!input) return;
+        var eventName = input.tagName === 'SELECT' ? 'change' : 'input';
+        input.addEventListener(eventName, applyFilters);
+      });
+
+      if (resetButton) {
+        resetButton.addEventListener('click', function () {
+          if (searchInput) searchInput.value = '';
+          if (brandSelect) brandSelect.value = '';
+          if (conditionSelect) conditionSelect.value = '';
+          if (locationSelect) locationSelect.value = '';
+          if (sortSelect) sortSelect.value = 'latest';
+          applyFilters();
+        });
+      }
+
+      applyFilters();
+    }
+
+    document.querySelectorAll('[data-approved-section]').forEach(initApprovedSection);
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "UA Approved Listings",
+  "settings": [
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Width",
+      "options": [
+        {
+          "value": "page-width",
+          "label": "Page width"
+        },
+        {
+          "value": "full-width",
+          "label": "Full width"
+        }
+      ],
+      "default": "page-width"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "Upgrade Assist"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Approved Used Parts"
+    },
+    {
+      "type": "textarea",
+      "id": "subheading",
+      "label": "Subheading",
+      "default": "These are the Upgrade Assist submissions that passed review and are ready to be shown publicly."
+    },
+    {
+      "type": "range",
+      "id": "max_cards",
+      "label": "Maximum cards",
+      "min": 3,
+      "max": 24,
+      "step": 1,
+      "default": 12
+    },
+    {
+      "type": "checkbox",
+      "id": "show_usage_notes",
+      "label": "Show usage notes",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_issue_disclosures",
+      "label": "Show issue disclosures",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "cta_label",
+      "label": "Top CTA label",
+      "default": "Submit your part"
+    },
+    {
+      "type": "url",
+      "id": "cta_link",
+      "label": "Top CTA link"
+    },
+    {
+      "type": "text",
+      "id": "empty_heading",
+      "label": "Empty heading",
+      "default": "No approved listings yet"
+    },
+    {
+      "type": "textarea",
+      "id": "empty_text",
+      "label": "Empty text",
+      "default": "Approved Upgrade Assist submissions will appear here after review."
+    }
+  ],
+  "presets": [
+    {
+      "name": "UA Approved Listings"
+    }
+  ]
+}
+{% endschema %}

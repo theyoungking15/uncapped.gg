@@ -1,0 +1,104 @@
+{%- layout none -%}
+{%- comment -%}
+  FPS Finder game index.
+  Keep the initial payload small by returning only enabled game/profile metadata here.
+  Selected-game benchmark rows are served separately through
+  `page.ucp-fps-finder-game-json.liquid`.
+{%- endcomment -%}
+
+{%- assign GAME_TYPE = 'game' -%}
+{%- assign game_values = shop.metaobjects[GAME_TYPE].values | default: blank -%}
+
+{
+  "games": [
+    {%- assign first_game = true -%}
+    {%- for game_entry in game_values -%}
+      {%- assign profile = game_entry.fps_profile.value -%}
+      {%- assign is_enabled = false -%}
+      {%- if game_entry.fps_finder_enabled != blank and game_entry.fps_finder_enabled.value -%}
+        {%- assign is_enabled = true -%}
+      {%- endif -%}
+
+      {%- assign game_key = game_entry.game_handle.value | default: game_entry.handle | strip | downcase -%}
+      {%- assign game_name = game_entry.name.value | default: game_entry.display_name.value | default: game_key -%}
+      {%- assign icon_media = game_entry.icon.value -%}
+      {%- assign banner_media = game_entry.banner.value -%}
+      {%- assign bg_image = game_entry.background_image.value -%}
+      {%- assign bg_video = game_entry.background_video.value -%}
+      {%- assign bg_video_source = blank -%}
+
+      {%- if bg_video != blank and bg_video.sources != blank -%}
+        {%- assign bg_video_source = bg_video.sources | first -%}
+      {%- endif -%}
+
+      {%- if is_enabled and profile != blank and game_key != blank -%}
+        {%- unless first_game -%},{%- endunless -%}
+        {
+          "game_handle": {{ game_key | json }},
+          "name": {{ game_name | json }},
+          "genre": {{ game_entry.genre.value | default: '' | json }},
+          "icon_url": {% if icon_media != blank %}{{ icon_media | image_url: width: 240 | json }}{% else %}null{% endif %},
+          "banner_url": {% if banner_media != blank %}{{ banner_media | image_url: width: 1600 | json }}{% else %}null{% endif %},
+          "background_image_url": {% if bg_image != blank %}{{ bg_image | image_url: width: 1200 | json }}{% else %}null{% endif %},
+          "background_video_url": {% if bg_video_source != blank and bg_video_source.url != blank %}{{ bg_video_source.url | json }}{% else %}null{% endif %},
+          "profile": {
+            "profile_key": {{ profile.profile_key.value | default: profile.handle | default: '' | json }},
+            "default_preset": {{ profile.default_preset.value | default: '' | json }},
+            "allowed_resolutions": [
+              {%- assign first_resolution = true -%}
+              {%- if profile.allow_1080p != blank and profile.allow_1080p.value -%}
+                {%- unless first_resolution -%},{%- endunless -%}"1080p"
+                {%- assign first_resolution = false -%}
+              {%- endif -%}
+              {%- if profile.allow_1440p != blank and profile.allow_1440p.value -%}
+                {%- unless first_resolution -%},{%- endunless -%}"1440p"
+                {%- assign first_resolution = false -%}
+              {%- endif -%}
+              {%- if profile.allow_4k != blank and profile.allow_4k.value -%}
+                {%- unless first_resolution -%},{%- endunless -%}"4k"
+              {%- endif -%}
+            ],
+            "tiers": {
+              "tier_1": {
+                "key": {{ profile.tier_1_key.value | default: 'tier-1' | json }},
+                "label": {{ profile.tier_1_label.value | default: 'Tier 1' | json }}
+              },
+              "tier_2": {
+                "key": {{ profile.tier_2_key.value | default: 'tier-2' | json }},
+                "label": {{ profile.tier_2_label.value | default: 'Tier 2' | json }}
+              },
+              "tier_3": {
+                "key": {{ profile.tier_3_key.value | default: 'tier-3' | json }},
+                "label": {{ profile.tier_3_label.value | default: 'Tier 3' | json }}
+              }
+            },
+            "thresholds": {
+              "1080p": {
+                "tier_1_min": {% if profile.fps_1080p_tier_1_min.value != blank %}{{ profile.fps_1080p_tier_1_min.value | plus: 0 | json }}{% else %}null{% endif %},
+                "tier_2_min": {% if profile.fps_1080p_tier_2_min.value != blank %}{{ profile.fps_1080p_tier_2_min.value | plus: 0 | json }}{% else %}null{% endif %},
+                "tier_3_min": {% if profile.fps_1080p_tier_3_min.value != blank %}{{ profile.fps_1080p_tier_3_min.value | plus: 0 | json }}{% else %}null{% endif %}
+              },
+              "1440p": {
+                "tier_1_min": {% if profile.fps_1440p_tier_1_min.value != blank %}{{ profile.fps_1440p_tier_1_min.value | plus: 0 | json }}{% else %}null{% endif %},
+                "tier_2_min": {% if profile.fps_1440p_tier_2_min.value != blank %}{{ profile.fps_1440p_tier_2_min.value | plus: 0 | json }}{% else %}null{% endif %},
+                "tier_3_min": {% if profile.fps_1440p_tier_3_min.value != blank %}{{ profile.fps_1440p_tier_3_min.value | plus: 0 | json }}{% else %}null{% endif %}
+              },
+              "4k": {
+                "tier_1_min": {% if profile.fps_4k_tier_1_min.value != blank %}{{ profile.fps_4k_tier_1_min.value | plus: 0 | json }}{% else %}null{% endif %},
+                "tier_2_min": {% if profile.fps_4k_tier_2_min.value != blank %}{{ profile.fps_4k_tier_2_min.value | plus: 0 | json }}{% else %}null{% endif %},
+                "tier_3_min": {% if profile.fps_4k_tier_3_min.value != blank %}{{ profile.fps_4k_tier_3_min.value | plus: 0 | json }}{% else %}null{% endif %}
+              }
+            },
+            "biases": {
+              "1080p": {{ profile.bias_1080p.value | default: '' | json }},
+              "1440p": {{ profile.bias_1440p.value | default: '' | json }},
+              "4k": {{ profile.bias_4k.value | default: '' | json }}
+            },
+            "notes_short": {{ profile.notes_short.value | default: '' | json }}
+          }
+        }
+        {%- assign first_game = false -%}
+      {%- endif -%}
+    {%- endfor -%}
+  ]
+}

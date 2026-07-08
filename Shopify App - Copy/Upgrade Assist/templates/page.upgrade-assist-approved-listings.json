@@ -1,0 +1,22 @@
+{
+  "sections": {
+    "main": {
+      "type": "upgrade-assist-approved-listings",
+      "settings": {
+        "eyebrow": "Upgrade Assist",
+        "heading": "Approved Used Parts",
+        "subheading": "These are the Upgrade Assist submissions that passed review and are ready to be shown publicly.",
+        "max_cards": 12,
+        "show_usage_notes": true,
+        "show_issue_disclosures": true,
+        "cta_label": "Submit your part",
+        "cta_link": "/pages/upgrade-assist",
+        "empty_heading": "No approved listings yet",
+        "empty_text": "Approved Upgrade Assist submissions will appear here after review."
+      }
+    }
+  },
+  "order": [
+    "main"
+  ]
+}

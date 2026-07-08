@@ -1,0 +1,243 @@
+{%- layout none -%}
+
+{%- assign mo = shop.metaobjects['bundle_hub_entry'] -%}
+
+{%- if mo and mo.values -%}
+  {%- paginate mo.values by 250 -%}
+  {%- liquid
+    assign rules_mo = shop.metaobjects['cpu_motherboard_bundle']
+    if rules_mo == blank
+      assign rules_mo = shop.metaobjects['cpu_motherboard_bundle_rule']
+    endif
+
+    assign bundle_rules = blank
+    if rules_mo and rules_mo.values
+      assign bundle_rules = rules_mo.values
+    endif
+  -%}
+  {
+    "entries": [
+      {%- assign first = true -%}
+      {%- for e in mo.values -%}
+        {%- liquid
+          assign active_flag = e.is_active
+          unless active_flag == true or active_flag == 'true' or active_flag == 1 or active_flag == '1'
+            continue
+          endunless
+
+          assign cpu_p = e.cpu_product
+          if cpu_p != blank and cpu_p.value != blank
+            assign cpu_p = cpu_p.value
+          endif
+
+          assign page_ref = e.bundle_page
+          if page_ref != blank and page_ref.value != blank
+            assign page_ref = page_ref.value
+          endif
+
+          assign url = ''
+          if page_ref != blank and page_ref.url != blank
+            assign url = page_ref.url
+          endif
+          if url == ''
+            continue
+          endif
+
+          assign title = e.title_override | default: '' | strip
+          if title == '' and cpu_p != blank
+            assign title = cpu_p.title | default: '' | strip
+          endif
+          if title == ''
+            assign title = e.cpu_handle | default: '' | strip
+            if title != ''
+              assign title = title | replace: '-', ' '
+            endif
+          endif
+          if title == ''
+            assign title = 'CPU Bundle'
+          endif
+
+          assign subtitle = e.subtitle | default: '' | strip
+          assign badge = e.badge | default: '' | strip
+
+          assign cpu_thumb = ''
+          if cpu_p and cpu_p.featured_image
+            assign cpu_thumb = cpu_p.featured_image | image_url: width: 120
+          endif
+
+          assign cpu_handle = ''
+          assign cpu_product_id = null
+          if cpu_p != blank
+            assign cpu_handle = cpu_p.handle | default: '' | strip | downcase
+            assign cpu_product_id = cpu_p.id
+          endif
+
+          assign found_rules = 0
+          assign min_bundle_cents = blank
+          assign max_bundle_cents = blank
+          assign min_save_cents = blank
+          assign max_save_cents = blank
+
+          assign rules_count = 0
+          if bundle_rules != blank
+            assign rules_count = bundle_rules.size | default: 0 | plus: 0
+          endif
+
+          assign max_chunk = 0
+          if rules_count > 0
+            assign max_chunk = rules_count | minus: 1 | divided_by: 50
+          endif
+
+          if bundle_rules != blank and cpu_p != blank
+            for chunk in (0..max_chunk)
+              assign off = chunk | times: 50
+
+              for r in bundle_rules limit: 50 offset: off
+                assign r_active = r.is_active
+                unless r_active == true or r_active == 'true' or r_active == 1 or r_active == '1'
+                  continue
+                endunless
+
+                assign r_cpu_p = r.cpu_product
+                if r_cpu_p != blank and r_cpu_p.value != blank
+                  assign r_cpu_p = r_cpu_p.value
+                endif
+                if r_cpu_p == blank
+                  continue
+                endif
+
+                unless r_cpu_p.id == cpu_p.id
+                  continue
+                endunless
+
+                assign r_cpu_v = r.cpu_variant
+                if r_cpu_v != blank and r_cpu_v.value != blank
+                  assign r_cpu_v = r_cpu_v.value
+                endif
+
+                assign r_mb_p = r.motherboard_product
+                if r_mb_p != blank and r_mb_p.value != blank
+                  assign r_mb_p = r_mb_p.value
+                endif
+
+                assign r_mb_v = r.motherboard_variant
+                if r_mb_v != blank and r_mb_v.value != blank
+                  assign r_mb_v = r_mb_v.value
+                endif
+
+                assign cpu_cents = 0
+                if r_cpu_v != blank and r_cpu_v.price != blank
+                  assign cpu_cents = r_cpu_v.price | plus: 0
+                elsif cpu_p.price_min != blank
+                  assign cpu_cents = cpu_p.price_min | plus: 0
+                endif
+
+                assign mb_cents = 0
+                if r_mb_v != blank and r_mb_v.price != blank
+                  assign mb_cents = r_mb_v.price | plus: 0
+                elsif r_mb_p != blank and r_mb_p.price_min != blank
+                  assign mb_cents = r_mb_p.price_min | plus: 0
+                endif
+
+                assign disc_pesos = r.discount_amount | default: 0 | plus: 0
+                assign disc_cents = disc_pesos | times: 100
+
+                assign bundle_cents = cpu_cents | plus: mb_cents | minus: disc_cents
+                if bundle_cents < 0
+                  assign bundle_cents = 0
+                endif
+
+                assign found_rules = found_rules | plus: 1
+
+                if min_bundle_cents == blank or bundle_cents < min_bundle_cents
+                  assign min_bundle_cents = bundle_cents
+                endif
+                if max_bundle_cents == blank or bundle_cents > max_bundle_cents
+                  assign max_bundle_cents = bundle_cents
+                endif
+
+                if min_save_cents == blank or disc_cents < min_save_cents
+                  assign min_save_cents = disc_cents
+                endif
+                if max_save_cents == blank or disc_cents > max_save_cents
+                  assign max_save_cents = disc_cents
+                endif
+              endfor
+            endfor
+          endif
+
+          assign brand_entry = blank
+          assign brand_name = ''
+          assign brand_key = ''
+          if cpu_p and cpu_p.metafields.relations and cpu_p.metafields.relations.brand
+            assign brand_entry = cpu_p.metafields.relations.brand.value | default: cpu_p.metafields.relations.brand
+          endif
+          if brand_entry != blank
+            assign brand_name = brand_entry.name | default: '' | strip
+            if brand_entry.brand_handle != blank
+              assign brand_key = brand_entry.brand_handle | strip | downcase
+            elsif brand_name != ''
+              assign brand_key = brand_name | handleize | downcase
+            endif
+          endif
+
+          assign socket_key = ''
+          assign socket_label = ''
+          assign sockets = e.processor_socket
+          if sockets != blank and sockets.value != blank
+            assign sockets = sockets.value
+          endif
+          if sockets != blank
+            for s in sockets
+              assign s_label = s.name | default: s.title | default: ''
+              if s_label == '' and s.system and s.system.handle
+                assign s_label = s.system.handle
+              endif
+              if s_label != ''
+                assign socket_label = s_label | strip
+                assign socket_key = socket_label | handleize | downcase
+                break
+              endif
+            endfor
+          endif
+
+          assign gen = e.cpu_generation | default: '' | strip
+          assign gen_key = ''
+          if gen != ''
+            assign gen_key = gen | handleize | downcase
+          endif
+
+          assign sort_num = e.sort_order | default: 999999 | plus: 0
+        -%}
+
+        {%- unless first -%},{%- endunless -%}
+        {
+          "url": {{ url | json }},
+          "cpu_product_id": {{ cpu_product_id | json }},
+          "cpu_handle": {{ cpu_handle | json }},
+          "title": {{ title | json }},
+          "subtitle": {{ subtitle | json }},
+          "badge": {{ badge | json }},
+          "cpu_thumb": {{ cpu_thumb | json }},
+          "brand_key": {{ brand_key | json }},
+          "brand_name": {{ brand_name | json }},
+          "socket_key": {{ socket_key | json }},
+          "socket_label": {{ socket_label | json }},
+          "gen_key": {{ gen_key | json }},
+          "gen_label": {{ gen | json }},
+          "sort_order": {{ sort_num | json }},
+          "bundle_min_cents": {{ min_bundle_cents | default: 0 | plus: 0 | json }},
+          "bundle_max_cents": {{ max_bundle_cents | default: 0 | plus: 0 | json }},
+          "save_min_cents": {{ min_save_cents | default: 0 | plus: 0 | json }},
+          "save_max_cents": {{ max_save_cents | default: 0 | plus: 0 | json }},
+          "has_price": {%- if found_rules > 0 and min_bundle_cents != blank -%}true{%- else -%}false{%- endif -%}
+        }
+        {%- assign first = false -%}
+      {%- endfor -%}
+    ],
+    "next_page": {%- if paginate.current_page < paginate.pages -%}{{ paginate.current_page | plus: 1 }}{%- else -%}null{%- endif -%}
+  }
+  {%- endpaginate -%}
+{%- else -%}
+  {"entries":[],"next_page":null}
+{%- endif -%}

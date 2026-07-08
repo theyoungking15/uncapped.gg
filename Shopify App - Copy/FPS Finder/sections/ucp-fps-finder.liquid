@@ -1,0 +1,335 @@
+{%- comment -%}
+  Standalone FPS Finder section.
+  This section is intended to live on a dedicated page template so it can fetch
+  its own JSON read models from the current page URL.
+{%- endcomment -%}
+
+{{ 'ucp-fps-finder.css' | asset_url | stylesheet_tag }}
+
+{%- liquid
+  assign cpu_col = section.settings.cpu_collection
+  assign gpu_col = section.settings.gpu_collection
+
+  capture cpu_endpoint
+    if cpu_col != blank
+      echo cpu_col.url | append: '?view=ucp-pc-builder-json'
+    else
+      echo ''
+    endif
+  endcapture
+
+  capture gpu_endpoint
+    if gpu_col != blank
+      echo gpu_col.url | append: '?view=ucp-pc-builder-json'
+    else
+      echo ''
+    endif
+  endcapture
+
+  capture data_endpoint
+    if page != blank
+      echo page.url | append: '?view=ucp-fps-finder-json'
+    else
+      echo ''
+    endif
+  endcapture
+
+  capture game_data_endpoint
+    if page != blank
+      echo page.url | append: '?view=ucp-fps-finder-game-json'
+    else
+      echo ''
+    endif
+  endcapture
+
+  capture pair_data_endpoint
+    if page != blank
+      echo page.url | append: '?view=ucp-fps-finder-pair-json'
+    else
+      echo ''
+    endif
+  endcapture
+-%}
+
+<section class="ucp-fpsf" data-ucp-fps-finder data-ucp-source-page-type="fps_finder">
+  <script type="application/json" id="ucp-fps-finder-config">
+    {
+      "finder_mode": {{ section.settings.finder_mode | json }},
+      "data_endpoint": {{ data_endpoint | strip | json }},
+      "game_data_endpoint": {{ game_data_endpoint | strip | json }},
+      "pair_data_endpoint": {{ pair_data_endpoint | strip | json }},
+      "builder_page_url": {{ section.settings.builder_page_url | json }},
+      "disable_cta_when_unavailable": {{ section.settings.disable_cta_when_unavailable | json }},
+      "awaiting_tile_logo_url": {% if section.settings.awaiting_tile_logo != blank %}{{ section.settings.awaiting_tile_logo | image_url: width: 180 | json }}{% else %}""{% endif %},
+      "compare_beta_modal": {
+        "mode": {{ section.settings.compare_beta_modal_mode | json }},
+        "title": {{ section.settings.compare_beta_modal_title | json }},
+        "body": {{ section.settings.compare_beta_modal_body | json }},
+        "button_label": {{ section.settings.compare_beta_modal_button_label | json }}
+      },
+      "top_card_1_lane": {{ section.settings.top_card_1_lane | json }},
+      "top_card_2_lane": {{ section.settings.top_card_2_lane | json }},
+      "top_card_3_lane": {{ section.settings.top_card_3_lane | json }},
+      "best_starting_min_fps_gain_percent": {{ section.settings.best_starting_min_fps_gain_percent | json }},
+      "best_starting_max_price_increase_percent": {{ section.settings.best_starting_max_price_increase_percent | json }},
+      "endpoints": {
+        "cpu": {{ cpu_endpoint | strip | json }},
+        "gpu": {{ gpu_endpoint | strip | json }}
+      },
+      "copy": {
+        "heading": {{ section.settings.heading | json }},
+        "subheading": {{ section.settings.subheading | json }},
+        "empty_results": {{ section.settings.empty_results_text | json }},
+        "load_error": {{ section.settings.load_error_text | json }}
+      }
+    }
+  </script>
+
+  <div class="ucp-fpsf__shell">
+    <div class="ucp-fpsf__intro">
+      <div class="ucp-fpsf__intro-bar">
+        <div>
+          <p class="ucp-fpsf__eyebrow">FPS Finder</p>
+          <h2 class="ucp-fpsf__title">{{ section.settings.heading | escape }}</h2>
+        </div>
+      </div>
+      <p class="ucp-fpsf__subtitle">{{ section.settings.subheading | escape }}</p>
+    </div>
+
+    {%- if section.settings.finder_mode == 'component_centric' -%}
+      <div class="ucp-fpsf__component-modeSwitch" role="group" aria-label="Component view mode">
+        <button type="button" class="ucp-fpsf__compare-action ucp-fpsf__component-modeToggle" data-component-view-toggle="compare">
+          Compare Mode
+        </button>
+        <button type="button" class="ucp-fpsf__compare-action ucp-fpsf__component-modeToggle" data-component-view-toggle="single">
+          Single Mode
+        </button>
+      </div>
+
+      <div id="ucp-fps-finder-component-browse">
+        <div class="ucp-fpsf__controls ucp-fpsf__controls--component">
+          <label class="ucp-fpsf__field" for="ucp-fps-finder-component-cpu">
+            <span class="ucp-fpsf__label">CPU</span>
+            <select id="ucp-fps-finder-component-cpu" class="ucp-fpsf__select">
+              <option value="">Select a CPU</option>
+            </select>
+          </label>
+
+          <label class="ucp-fpsf__field" for="ucp-fps-finder-component-gpu">
+            <span class="ucp-fpsf__label">GPU</span>
+            <select id="ucp-fps-finder-component-gpu" class="ucp-fpsf__select">
+              <option value="">Select a GPU</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="ucp-fpsf__component-compare-filters ucp-fpsf__component-single-filters">
+          <div class="ucp-fpsf__field ucp-fpsf__component-compare-filterRow">
+            <span class="ucp-fpsf__label">Resolution</span>
+            <div id="ucp-fps-finder-resolutions" class="ucp-fpsf__resolutions ucp-fpsf__component-compare-chipGroup" aria-live="polite"></div>
+          </div>
+
+          <div class="ucp-fpsf__field ucp-fpsf__component-compare-filterRow">
+            <span class="ucp-fpsf__label">Preset</span>
+            <div id="ucp-fps-finder-presets" class="ucp-fpsf__presets ucp-fpsf__component-compare-chipGroup" aria-live="polite"></div>
+          </div>
+        </div>
+
+        <p id="ucp-fps-finder-status" class="ucp-fpsf__status" aria-live="polite"></p>
+        <div id="ucp-fps-finder-component-stage" class="ucp-fpsf__component-stage"></div>
+        <div id="ucp-fps-finder-component-picker" class="ucp-fpsf__component-picker"></div>
+        <div id="ucp-fps-finder-note" class="ucp-fpsf__note" hidden></div>
+        <div id="ucp-fps-finder-results" class="ucp-fpsf__results ucp-fpsf__results--component"></div>
+      </div>
+      <div id="ucp-fps-finder-component-compare" class="ucp-fpsf__component-compare-mode" hidden></div>
+      <div id="ucp-fps-finder-component-compare-beta-modal" class="ucp-fpsf__component-compare-beta-modal-slot" hidden></div>
+    {%- else -%}
+      <div id="ucp-fps-finder-selected-game" class="ucp-fpsf__selected-game" hidden></div>
+
+      <div class="ucp-fpsf__controls">
+        <label class="ucp-fpsf__field" for="ucp-fps-finder-game">
+          <span class="ucp-fpsf__label">Game</span>
+          <select id="ucp-fps-finder-game" class="ucp-fpsf__select">
+            <option value="">Loading games...</option>
+          </select>
+        </label>
+
+        <div class="ucp-fpsf__field">
+          <span class="ucp-fpsf__label">Resolution</span>
+          <div id="ucp-fps-finder-resolutions" class="ucp-fpsf__resolutions" aria-live="polite"></div>
+        </div>
+
+        <div class="ucp-fpsf__field">
+          <span class="ucp-fpsf__label">Preset</span>
+          <div id="ucp-fps-finder-presets" class="ucp-fpsf__presets" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <div id="ucp-fps-finder-note" class="ucp-fpsf__note" hidden></div>
+      <p id="ucp-fps-finder-status" class="ucp-fpsf__status" aria-live="polite"></p>
+      <div id="ucp-fps-finder-recommendations" class="ucp-fpsf__recommendations" hidden></div>
+      <div id="ucp-fps-finder-results" class="ucp-fpsf__results"></div>
+      <div id="ucp-fps-finder-compare" class="ucp-fpsf__compare" hidden></div>
+    {%- endif -%}
+  </div>
+</section>
+
+{{ 'ucp-fps-finder.js' | asset_url | script_tag }}
+<script src="{{ 'ucp-source-tracker.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "UCP FPS Finder",
+  "settings": [
+    {
+      "type": "select",
+      "id": "finder_mode",
+      "label": "FPS Finder mode",
+      "default": "game_centric",
+      "options": [
+        { "value": "game_centric", "label": "Game Centric FPS Finder" },
+        { "value": "component_centric", "label": "Component Centric FPS Finder" }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Find a starting point for your next build"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "Subheading",
+      "default": "Pick a game, target resolution, and preset to see curated CPU and GPU starting points that clear the authored FPS tiers."
+    },
+    {
+      "type": "url",
+      "id": "builder_page_url",
+      "label": "PC Builder page URL"
+    },
+    {
+      "type": "select",
+      "id": "compare_beta_modal_mode",
+      "label": "FPS Finder beta modal",
+      "default": "every_page_load",
+      "options": [
+        { "value": "off", "label": "Off" },
+        { "value": "every_page_load", "label": "Every page load" },
+        { "value": "once_per_session", "label": "Once per session" },
+        { "value": "once_per_device", "label": "Once per device" }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "compare_beta_modal_title",
+      "label": "FPS Finder beta modal title",
+      "default": "FPS Finder is in beta"
+    },
+    {
+      "type": "textarea",
+      "id": "compare_beta_modal_body",
+      "label": "FPS Finder beta modal body",
+      "default": "Use FPS Finder as a directional guide for CPU and GPU hierarchy plus estimated FPS gaps. Actual results vary with the full build, cooling, drivers, game patches, scenes, and settings, so do not treat these results as guaranteed real-world FPS."
+    },
+    {
+      "type": "text",
+      "id": "compare_beta_modal_button_label",
+      "label": "FPS Finder beta modal button label",
+      "default": "Got it"
+    },
+    {
+      "type": "image_picker",
+      "id": "awaiting_tile_logo",
+      "label": "Awaiting game tile logo"
+    },
+    {
+      "type": "collection",
+      "id": "cpu_collection",
+      "label": "CPU collection"
+    },
+    {
+      "type": "collection",
+      "id": "gpu_collection",
+      "label": "GPU collection"
+    },
+    {
+      "type": "checkbox",
+      "id": "disable_cta_when_unavailable",
+      "label": "Disable CTA when mapped parts are unavailable",
+      "default": false
+    },
+    {
+      "type": "select",
+      "id": "top_card_1_lane",
+      "label": "Top card 1",
+      "default": "best_budget",
+      "options": [
+        { "value": "best_budget", "label": "Best Budget" },
+        { "value": "best_value", "label": "Best Value" },
+        { "value": "better_upgrade_path", "label": "Better Upgrade Path" },
+        { "value": "best_starting_point", "label": "Best Starting Point" }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "top_card_2_lane",
+      "label": "Top card 2",
+      "default": "best_value",
+      "options": [
+        { "value": "best_budget", "label": "Best Budget" },
+        { "value": "best_value", "label": "Best Value" },
+        { "value": "better_upgrade_path", "label": "Better Upgrade Path" },
+        { "value": "best_starting_point", "label": "Best Starting Point" }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "top_card_3_lane",
+      "label": "Top card 3",
+      "default": "better_upgrade_path",
+      "options": [
+        { "value": "best_budget", "label": "Best Budget" },
+        { "value": "best_value", "label": "Best Value" },
+        { "value": "better_upgrade_path", "label": "Better Upgrade Path" },
+        { "value": "best_starting_point", "label": "Best Starting Point" }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "best_starting_min_fps_gain_percent",
+      "label": "Best Starting Point lane: minimum FPS gain over Best Value (%)",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "best_starting_max_price_increase_percent",
+      "label": "Best Starting Point lane: maximum price increase over Best Value (%)",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "default": 20
+    },
+    {
+      "type": "text",
+      "id": "empty_results_text",
+      "label": "Empty results text",
+      "default": "No curated CPU and GPU starting points match this game profile yet."
+    },
+    {
+      "type": "text",
+      "id": "load_error_text",
+      "label": "Load error text",
+      "default": "FPS Finder could not load its data right now. Please try again."
+    }
+  ],
+  "presets": [
+    {
+      "name": "UCP FPS Finder"
+    }
+  ]
+}
+{% endschema %}

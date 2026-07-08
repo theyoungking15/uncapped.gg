@@ -1,0 +1,18 @@
+{
+  "name": "upgrade-assist-local-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first backend and review UI for Upgrade Assist.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
+    "resync:shopify": "node scripts/resync-used-listings.js",
+    "generate:shopify-config": "node scripts/generate-shopify-app-config.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.5.0",
+    "express": "^4.21.2",
+    "multer": "^2.0.2"
+  }
+}

@@ -1,0 +1,460 @@
+{%- comment -%}
+  File: sections/ucp-messenger-bubble.liquid
+
+  Adds a lightweight Messenger-style floating launcher that sends shoppers to the
+  store's Facebook Messenger thread through an m.me link.
+{%- endcomment -%}
+
+{%- liquid
+  assign page_username = section.settings.page_username | default: 'UncappedPC' | strip | remove: '@'
+  if page_username == blank
+    assign page_username = 'UncappedPC'
+  endif
+
+  assign configured_url = section.settings.messenger_url | strip
+  assign messenger_href = configured_url
+  if messenger_href == blank
+    assign messenger_href = 'https://m.me/' | append: page_username
+  endif
+
+  assign ref_code = section.settings.ref_code | default: 'website_bubble' | strip
+  if ref_code != blank
+    assign encoded_ref = ref_code | url_encode
+    assign joiner = '?'
+    if messenger_href contains '?'
+      assign joiner = '&'
+    endif
+    assign messenger_href = messenger_href | append: joiner | append: 'ref=' | append: encoded_ref
+  endif
+
+  assign behavior = section.settings.launcher_behavior | default: 'panel'
+  assign position = section.settings.horizontal_position | default: 'right'
+-%}
+
+<div
+  id="ucp-messenger-bubble-{{ section.id }}"
+  class="
+    ucp-msgr
+    ucp-msgr--{{ position }}
+    {% unless section.settings.show_desktop %}ucp-msgr--hide-desktop{% endunless %}
+    {% unless section.settings.show_mobile %}ucp-msgr--hide-mobile{% endunless %}
+  "
+  style="
+    --ucp-msgr-bottom-desktop: {{ section.settings.bottom_offset_desktop | default: 24 }}px;
+    --ucp-msgr-bottom-mobile: {{ section.settings.bottom_offset_mobile | default: 18 }}px;
+    --ucp-msgr-accent: {{ section.settings.accent_color | default: '#0084ff' }};
+    --ucp-msgr-text: {{ section.settings.text_color | default: '#111111' }};
+  "
+  data-ucp-messenger-bubble
+>
+  {%- if behavior == 'direct' -%}
+    <a
+      class="ucp-msgr__launcher"
+      href="{{ messenger_href }}"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="{{ section.settings.launcher_label | default: 'Chat on Messenger' | escape }}"
+    >
+      <span class="ucp-msgr__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false">
+          <path d="M12 3c-5.05 0-9 3.69-9 8.42 0 2.69 1.28 5.08 3.28 6.63v2.78c0 .37.4.6.72.42l2.67-1.48c.74.18 1.52.27 2.33.27 5.05 0 9-3.69 9-8.42S17.05 3 12 3Zm1.03 11.22-2.29-2.43-4.43 2.43 4.86-5.12 2.34 2.43 4.38-2.43-4.86 5.12Z"/>
+        </svg>
+      </span>
+    </a>
+  {%- else -%}
+    <button
+      class="ucp-msgr__launcher"
+      type="button"
+      aria-label="{{ section.settings.launcher_label | default: 'Open Messenger chat options' | escape }}"
+      aria-expanded="false"
+      aria-controls="ucp-messenger-panel-{{ section.id }}"
+      data-ucp-msgr-launcher
+    >
+      <span class="ucp-msgr__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false">
+          <path d="M12 3c-5.05 0-9 3.69-9 8.42 0 2.69 1.28 5.08 3.28 6.63v2.78c0 .37.4.6.72.42l2.67-1.48c.74.18 1.52.27 2.33.27 5.05 0 9-3.69 9-8.42S17.05 3 12 3Zm1.03 11.22-2.29-2.43-4.43 2.43 4.86-5.12 2.34 2.43 4.38-2.43-4.86 5.12Z"/>
+        </svg>
+      </span>
+    </button>
+
+    <div
+      id="ucp-messenger-panel-{{ section.id }}"
+      class="ucp-msgr__panel"
+      data-ucp-msgr-panel
+      hidden
+    >
+      <div class="ucp-msgr__head">
+        <div>
+          <strong>{{ section.settings.panel_title | default: 'Chat with us' | escape }}</strong>
+          {%- if section.settings.panel_subtitle != blank -%}
+            <span>{{ section.settings.panel_subtitle | escape }}</span>
+          {%- endif -%}
+        </div>
+        <button type="button" class="ucp-msgr__close" aria-label="Close" data-ucp-msgr-close>&times;</button>
+      </div>
+
+      {%- if section.settings.panel_text != blank -%}
+        <p class="ucp-msgr__copy">{{ section.settings.panel_text | escape }}</p>
+      {%- endif -%}
+
+      <a class="ucp-msgr__cta" href="{{ messenger_href }}" target="_blank" rel="noopener noreferrer" data-ucp-msgr-cta>
+        <span class="ucp-msgr__ctaIcon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <path d="M12 3c-5.05 0-9 3.69-9 8.42 0 2.69 1.28 5.08 3.28 6.63v2.78c0 .37.4.6.72.42l2.67-1.48c.74.18 1.52.27 2.33.27 5.05 0 9-3.69 9-8.42S17.05 3 12 3Zm1.03 11.22-2.29-2.43-4.43 2.43 4.86-5.12 2.34 2.43 4.38-2.43-4.86 5.12Z"/>
+          </svg>
+        </span>
+        {{ section.settings.cta_label | default: 'Continue in Messenger' | escape }}
+      </a>
+    </div>
+  {%- endif -%}
+</div>
+
+<style>
+  #shopify-section-{{ section.id }} .ucp-msgr {
+    position: fixed;
+    bottom: calc(var(--ucp-msgr-bottom-desktop) + env(safe-area-inset-bottom));
+    z-index: 2147483000;
+    color: var(--ucp-msgr-text);
+    font-family: inherit;
+  }
+
+  #shopify-section-{{ section.id }} .ucp-msgr--right {
+    right: max(18px, env(safe-area-inset-right));
+  }
+
+  #shopify-section-{{ section.id }} .ucp-msgr--left {
+    left: max(18px, env(safe-area-inset-left));
+  }
+
+  #shopify-section-{{ section.id }} .ucp-msgr__launcher {
+    appearance: none;
+    -webkit-appearance: none;
+    align-items: center;
+    background: var(--ucp-msgr-accent);
+    border: 0;
+    border-radius: 999px;
+    box-shadow: 0 16px 32px rgba(0, 0, 0, .22);
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    height: 62px;
+    justify-content: center;
+    padding: 0;
+    text-decoration: none;
+    transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
+    width: 62px;
+  }
+
+  #shopify-section-{{ section.id }} .ucp-msgr__launcher:hover,
+  #shopify-section-{{ section.id }} .ucp-msgr__launcher:focus-visible {
+    box-shadow: 0 18px 38px rgba(0, 0, 0, .28);
+    filter: brightness(1.04);
+    transform: translateY(-1px);
+  }
+
+  #shopify-section-{{ section.id }} .ucp-msgr__launcher:focus-visible,
+  #shopify-section-{{ section.id }} .ucp-msgr__close:focus-visible,
+  #shopify-section-{{ section.id }} .ucp-msgr__cta:focus-visible {
+    outline: 3px solid rgba(0, 132, 255, .32);
+    outline-offset: 3px;
+  }
+
+  #shopify-section-{{ section.id }} .ucp-msgr__icon,
+  #shopify-section-{{ section.id }} .ucp-msgr__ctaIcon {
+    display: inline-flex;
+  }
+
+  #shopify-section-{{ section.id }} .ucp-msgr__icon svg {
+    fill: currentColor;
+    height: 34px;
+    width: 34px;
+  }
+
+  #shopify-section-{{ section.id }} .ucp-msgr__panel {
+    background: #fff;
+    border: 1px solid rgba(15, 23, 42, .14);
+    border-radius: 16px;
+    bottom: 78px;
+    box-shadow: 0 24px 70px rgba(15, 23, 42, .22);
+    box-sizing: border-box;
+    padding: 16px;
+    position: absolute;
+    width: min(340px, calc(100vw - 32px));
+  }
+
+  #shopify-section-{{ section.id }} .ucp-msgr--right .ucp-msgr__panel {
+    right: 0;
+  }
+
+  #shopify-section-{{ section.id }} .ucp-msgr--left .ucp-msgr__panel {
+    left: 0;
+  }
+
+  #shopify-section-{{ section.id }} .ucp-msgr__head {
+    align-items: flex-start;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+  }
+
+  #shopify-section-{{ section.id }} .ucp-msgr__head strong {
+    display: block;
+    font-size: 17px;
+    line-height: 1.2;
+  }
+
+  #shopify-section-{{ section.id }} .ucp-msgr__head span {
+    color: rgba(17, 17, 17, .68);
+    display: block;
+    font-size: 13px;
+    line-height: 1.35;
+    margin-top: 3px;
+  }
+
+  #shopify-section-{{ section.id }} .ucp-msgr__close {
+    appearance: none;
+    -webkit-appearance: none;
+    align-items: center;
+    background: rgba(15, 23, 42, .06);
+    border: 0;
+    border-radius: 999px;
+    color: #111;
+    cursor: pointer;
+    display: flex;
+    flex: 0 0 auto;
+    font-size: 22px;
+    height: 32px;
+    justify-content: center;
+    line-height: 1;
+    padding: 0;
+    width: 32px;
+  }
+
+  #shopify-section-{{ section.id }} .ucp-msgr__copy {
+    color: rgba(17, 17, 17, .76);
+    font-size: 14px;
+    line-height: 1.45;
+    margin: 14px 0;
+  }
+
+  #shopify-section-{{ section.id }} .ucp-msgr__cta {
+    align-items: center;
+    background: var(--ucp-msgr-accent);
+    border-radius: 12px;
+    color: #fff;
+    display: flex;
+    font-size: 14px;
+    font-weight: 800;
+    gap: 9px;
+    justify-content: center;
+    min-height: 46px;
+    padding: 11px 14px;
+    text-decoration: none;
+  }
+
+  #shopify-section-{{ section.id }} .ucp-msgr__ctaIcon svg {
+    fill: currentColor;
+    height: 22px;
+    width: 22px;
+  }
+
+  @media (min-width: 750px) {
+    #shopify-section-{{ section.id }} .ucp-msgr--hide-desktop {
+      display: none;
+    }
+  }
+
+  @media (max-width: 749px) {
+    #shopify-section-{{ section.id }} .ucp-msgr {
+      bottom: calc(var(--ucp-msgr-bottom-mobile) + env(safe-area-inset-bottom));
+    }
+
+    #shopify-section-{{ section.id }} .ucp-msgr--hide-mobile {
+      display: none;
+    }
+
+    #shopify-section-{{ section.id }} .ucp-msgr--right {
+      right: max(14px, env(safe-area-inset-right));
+    }
+
+    #shopify-section-{{ section.id }} .ucp-msgr--left {
+      left: max(14px, env(safe-area-inset-left));
+    }
+
+    #shopify-section-{{ section.id }} .ucp-msgr__launcher {
+      height: 58px;
+      width: 58px;
+    }
+
+    #shopify-section-{{ section.id }} .ucp-msgr__panel {
+      bottom: 72px;
+      width: min(330px, calc(100vw - 28px));
+    }
+  }
+</style>
+
+<script>
+  (() => {
+    const root = document.getElementById("ucp-messenger-bubble-{{ section.id }}");
+    if (!root || root.dataset.ucpMessengerBound === "1") return;
+    root.dataset.ucpMessengerBound = "1";
+
+    const launcher = root.querySelector("[data-ucp-msgr-launcher]");
+    const panel = root.querySelector("[data-ucp-msgr-panel]");
+    const close = root.querySelector("[data-ucp-msgr-close]");
+    const cta = root.querySelector("[data-ucp-msgr-cta]");
+    if (!launcher || !panel) return;
+
+    function setOpen(open) {
+      root.classList.toggle("is-open", open);
+      panel.hidden = !open;
+      launcher.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+
+    launcher.addEventListener("click", () => {
+      setOpen(!root.classList.contains("is-open"));
+    });
+
+    if (close) {
+      close.addEventListener("click", () => setOpen(false));
+    }
+
+    if (cta) {
+      cta.addEventListener("click", () => setOpen(false));
+    }
+
+    document.addEventListener("click", (event) => {
+      if (!root.classList.contains("is-open")) return;
+      if (root.contains(event.target)) return;
+      setOpen(false);
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") setOpen(false);
+    });
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "UCP Messenger bubble",
+  "settings": [
+    {
+      "type": "text",
+      "id": "page_username",
+      "label": "Facebook Page username",
+      "default": "UncappedPC"
+    },
+    {
+      "type": "url",
+      "id": "messenger_url",
+      "label": "Messenger URL override"
+    },
+    {
+      "type": "text",
+      "id": "ref_code",
+      "label": "Messenger ref code",
+      "default": "website_bubble"
+    },
+    {
+      "type": "select",
+      "id": "launcher_behavior",
+      "label": "Launcher behavior",
+      "default": "panel",
+      "options": [
+        { "value": "panel", "label": "Open small panel" },
+        { "value": "direct", "label": "Open Messenger directly" }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "horizontal_position",
+      "label": "Position",
+      "default": "right",
+      "options": [
+        { "value": "right", "label": "Bottom right" },
+        { "value": "left", "label": "Bottom left" }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "show_desktop",
+      "label": "Show on desktop",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_mobile",
+      "label": "Show on mobile",
+      "default": true
+    },
+    {
+      "type": "range",
+      "id": "bottom_offset_desktop",
+      "label": "Bottom offset desktop",
+      "min": 8,
+      "max": 220,
+      "step": 4,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "range",
+      "id": "bottom_offset_mobile",
+      "label": "Bottom offset mobile",
+      "min": 8,
+      "max": 220,
+      "step": 4,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "color",
+      "id": "accent_color",
+      "label": "Accent color",
+      "default": "#0084ff"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text color",
+      "default": "#111111"
+    },
+    {
+      "type": "text",
+      "id": "launcher_label",
+      "label": "Launcher accessibility label",
+      "default": "Chat on Messenger"
+    },
+    {
+      "type": "text",
+      "id": "panel_title",
+      "label": "Panel title",
+      "default": "Chat with us"
+    },
+    {
+      "type": "text",
+      "id": "panel_subtitle",
+      "label": "Panel subtitle",
+      "default": "Uncapped PC"
+    },
+    {
+      "type": "textarea",
+      "id": "panel_text",
+      "label": "Panel text",
+      "default": "Have questions about parts, availability, or a quote? Message us on Messenger."
+    },
+    {
+      "type": "text",
+      "id": "cta_label",
+      "label": "CTA label",
+      "default": "Continue in Messenger"
+    }
+  ],
+  "presets": [
+    {
+      "name": "UCP Messenger bubble"
+    }
+  ]
+}
+{% endschema %}

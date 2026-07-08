@@ -1,0 +1,612 @@
+const SECRET = 'pc builder data saver';
+const PH_TIMEZONE = 'Asia/Manila';
+
+/**
+ * If this script is NOT bound to the spreadsheet (standalone project),
+ * put your Google Sheet ID here.
+ * If it IS bound, leave as empty string.
+ */
+const SPREADSHEET_ID = '';
+
+/**
+ * Schema headers.
+ * Row data is remapped by header name if this order changes.
+ */
+const SCHEMA_HEADERS = [
+  'timestamp',
+  'event',
+  'sessionId',
+  'buildId',
+  'quoteCode',
+  'quoteVersion',
+  'approvalLink',
+  'quoteLink',
+  'buildLink',
+  'currency',
+  'locale',
+  'summaryText',
+  'total',
+
+  'cpu_title','cpu_handle','cpu_productId','cpu_variantId','cpu_vendor','cpu_price',
+  'mobo_title','mobo_handle','mobo_productId','mobo_variantId','mobo_vendor','mobo_price',
+  'ram_title','ram_handle','ram_productId','ram_variantId','ram_vendor','ram_price',
+  'gpu_title','gpu_handle','gpu_productId','gpu_variantId','gpu_vendor','gpu_price',
+  'cooler_title','cooler_handle','cooler_productId','cooler_variantId','cooler_vendor','cooler_price',
+  'ssd_title','ssd_handle','ssd_productId','ssd_variantId','ssd_vendor','ssd_price',
+  'psu_title','psu_handle','psu_productId','psu_variantId','psu_vendor','psu_price',
+  'case_title','case_handle','case_productId','case_variantId','case_vendor','case_price',
+  'casefans_title','casefans_handle','casefans_productId','casefans_variantId','casefans_vendor','casefans_price',
+  'casefans_qty_total',
+  'other_title','other_handle','other_productId','other_variantId','other_vendor','other_price',
+  'other_qty_total',
+
+  'deviceType',
+  'os',
+  'browser',
+  'uaPlatform',
+  'uaMobileHint',
+  'pageUrl',
+  'userAgent',
+  'customerId',
+  'customerEmail',
+  'customerName',
+  'savedBuildId',
+  'savedBuildHandle',
+  'savedBuildName',
+  'saveBuildStatus',
+  'subtotalBase',
+  'rawBundleDiscount',
+  'bundleDiscount',
+  'promoHandle',
+  'promoLabel',
+  'promoDiscount',
+  'promoActive',
+  'promoValid',
+  'promoStackWithBundleDiscount',
+  'promoSuppressedByAddon',
+  'promoMissingCount',
+  'addonRuleHandles',
+  'addonRuleLabels',
+  'addonDiscountLabels',
+  'addonDiscountCount',
+  'addonDiscountTotal',
+  'addonSuppressesBundleDiscount',
+  'addonSuppressesPrimaryPromo',
+  'manualOff',
+  'payableSubtotal'
+];
+
+const SOURCE_EVENT_HEADERS = [
+  'timestamp',
+  'date',
+  'event',
+  'openId',
+  'sourceTag',
+  'campaign',
+  'content',
+  'promoHandle',
+  'referrerHost',
+  'referrerUrl',
+  'entryType',
+  'pageType',
+  'ctaName',
+  'targetUrl',
+  'pageUrl',
+  'quoteCode',
+  'quoteVersion',
+  'quoteLink',
+  'buildLink',
+  'sessionId',
+  'customerId',
+  'customerEmail',
+  'deviceType',
+  'os',
+  'browser',
+  'uaPlatform',
+  'uaMobileHint',
+  'userAgent'
+];
+
+const SOURCE_DAILY_HEADERS = [
+  'date',
+  'event',
+  'pageType',
+  'sourceTag',
+  'openCount'
+];
+
+const SOURCE_CAMPAIGN_DAILY_HEADERS = [
+  'date',
+  'event',
+  'pageType',
+  'sourceTag',
+  'campaign',
+  'content',
+  'promoHandle',
+  'ctaName',
+  'deviceType',
+  'openCount'
+];
+
+function doPost(e) {
+  // Accept "data" as urlencoded JSON string, to avoid CORS issues
+  const raw =
+    (e && e.parameter && e.parameter.data) ? e.parameter.data :
+    (e && e.postData && e.postData.contents) ? e.postData.contents :
+    '';
+
+  if (!raw) return json_({ ok: false, error: 'Missing data' });
+
+  const dataStr = normalizeBody_(raw);
+
+  let body;
+  try {
+    body = JSON.parse(dataStr);
+  } catch (err) {
+    return json_({ ok: false, error: 'Invalid JSON' });
+  }
+
+  if (body.secret !== SECRET) {
+    return json_({ ok: false, error: 'Unauthorized' });
+  }
+
+  const p = body.payload || {};
+
+  const ss = getSpreadsheet_();
+  if (!ss) {
+    return json_({
+      ok: false,
+      error: 'No spreadsheet found. Bind this script to a Google Sheet, or set SPREADSHEET_ID.'
+    });
+  }
+
+  if (isSourceEvent_(p.event)) {
+    appendSourceEvent_(ss, p);
+    rebuildSourceDailySummary_(ss);
+    rebuildSourceCampaignDailySummary_(ss);
+    return json_({ ok: true });
+  }
+
+  const sheet = ss.getSheetByName('build_logs') || ss.insertSheet('build_logs');
+
+  const headers = ensureHeaders_(sheet);
+
+  const row = buildRow_(p, headers);
+  sheet.appendRow(row);
+
+  try {
+    if (p && p.quoteCode) upsertQuote_(ss, p);
+  } catch (e) {}
+
+  return json_({ ok: true });
+}
+
+function getSpreadsheet_() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (ss) return ss;
+  } catch (e) {}
+
+  const id = String(SPREADSHEET_ID || '').trim();
+  if (!id) return null;
+
+  try {
+    return SpreadsheetApp.openById(id);
+  } catch (e) {
+    return null;
+  }
+}
+
+function normalizeBody_(raw) {
+  let s = String(raw || '').trim();
+
+  // If postData.contents comes in as "data=...."
+  if (s.startsWith('data=')) s = s.slice(5);
+
+  // Try decodeURIComponent if it looks encoded
+  try {
+    if (/%7B|%22|%3A|%2C/i.test(s)) s = decodeURIComponent(s);
+  } catch (e) {}
+
+  return s.trim();
+}
+
+/**
+ * Ensures row 1 has headers in the desired order.
+ * If headers changed, existing data rows are remapped by header name so values stay aligned.
+ * Returns the final header row as an array, in the sheet's actual order.
+ */
+function ensureHeaders_(sheet) {
+  return ensureSheetHeaders_(sheet, SCHEMA_HEADERS);
+}
+
+function ensureSheetHeaders_(sheet, expectedHeaders) {
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow === 0) {
+    sheet.appendRow(expectedHeaders);
+    return expectedHeaders.slice();
+  }
+
+  const lastCol = Math.max(1, sheet.getLastColumn());
+  const existing = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
+    .map((x) => String(x || '').trim());
+
+  const needRewrite =
+    existing.length !== expectedHeaders.length ||
+    expectedHeaders.some((h, idx) => (existing[idx] || '') !== h);
+
+  if (needRewrite) {
+    const dataRows = Math.max(0, lastRow - 1);
+    let reorderedRows = [];
+
+    if (dataRows > 0) {
+      const rawRows = sheet.getRange(2, 1, dataRows, lastCol).getValues();
+      reorderedRows = rawRows.map((row) => {
+        const source = {};
+        existing.forEach((header, idx) => {
+          if (!header) return;
+          source[header] = row[idx];
+        });
+        return expectedHeaders.map((header) => (header in source ? source[header] : ''));
+      });
+    }
+
+    sheet.clearContents();
+    sheet.getRange(1, 1, 1, expectedHeaders.length).setValues([expectedHeaders]);
+    if (reorderedRows.length) {
+      sheet.getRange(2, 1, reorderedRows.length, expectedHeaders.length).setValues(reorderedRows);
+    }
+    return expectedHeaders.slice();
+  }
+
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
+    .map((x) => String(x || '').trim());
+
+  return headers;
+}
+
+function buildRow_(p, headers) {
+  const now = nowPhilippineIso_();
+  const part = (x) => x || {};
+
+  const cpu = part(p.cpu);
+  const mobo = part(p.motherboard);
+  const ram = part(p.ram);
+  const gpu = part(p.gpu);
+  const cooler = part(p.cooler);
+  const ssd = part(p.ssd);
+  const psu = part(p.psu);
+  const pcCase = part(p.case);
+  const casefans = part(p.casefans);
+  const other = part(p.other);
+
+  const m = {
+    timestamp: now,
+    event: p.event || 'generate_pdf',
+    sessionId: val_(p.sessionId),
+    buildId: val_(p.buildId),
+    quoteCode: val_(p.quoteCode),
+    quoteVersion: val_(p.quoteVersion),
+    approvalLink: val_(p.approvalLink),
+    quoteLink: val_(p.quoteLink),
+    buildLink: val_(p.buildLink),
+    currency: val_(p.currency),
+    locale: val_(p.locale),
+    summaryText: val_(p.summaryText),
+    total: (p.total === undefined || p.total === null) ? '' : p.total,
+
+    cpu_title: val_(cpu.title), cpu_handle: val_(cpu.handle), cpu_productId: val_(cpu.productId), cpu_variantId: val_(cpu.variantId), cpu_vendor: val_(cpu.vendor), cpu_price: val_(cpu.price),
+    mobo_title: val_(mobo.title), mobo_handle: val_(mobo.handle), mobo_productId: val_(mobo.productId), mobo_variantId: val_(mobo.variantId), mobo_vendor: val_(mobo.vendor), mobo_price: val_(mobo.price),
+    ram_title: val_(ram.title), ram_handle: val_(ram.handle), ram_productId: val_(ram.productId), ram_variantId: val_(ram.variantId), ram_vendor: val_(ram.vendor), ram_price: val_(ram.price),
+    gpu_title: val_(gpu.title), gpu_handle: val_(gpu.handle), gpu_productId: val_(gpu.productId), gpu_variantId: val_(gpu.variantId), gpu_vendor: val_(gpu.vendor), gpu_price: val_(gpu.price),
+    cooler_title: val_(cooler.title), cooler_handle: val_(cooler.handle), cooler_productId: val_(cooler.productId), cooler_variantId: val_(cooler.variantId), cooler_vendor: val_(cooler.vendor), cooler_price: val_(cooler.price),
+    ssd_title: val_(ssd.title), ssd_handle: val_(ssd.handle), ssd_productId: val_(ssd.productId), ssd_variantId: val_(ssd.variantId), ssd_vendor: val_(ssd.vendor), ssd_price: val_(ssd.price),
+    psu_title: val_(psu.title), psu_handle: val_(psu.handle), psu_productId: val_(psu.productId), psu_variantId: val_(psu.variantId), psu_vendor: val_(psu.vendor), psu_price: val_(psu.price),
+    case_title: val_(pcCase.title), case_handle: val_(pcCase.handle), case_productId: val_(pcCase.productId), case_variantId: val_(pcCase.variantId), case_vendor: val_(pcCase.vendor), case_price: val_(pcCase.price),
+
+    deviceType: val_(p.deviceType),
+    os: val_(p.os),
+    browser: val_(p.browser),
+    uaPlatform: val_(p.uaPlatform),
+    uaMobileHint: val_(p.uaMobileHint),
+    pageUrl: val_(p.pageUrl),
+    userAgent: val_(p.userAgent),
+    customerId: val_(p.customerId),
+    customerEmail: val_(p.customerEmail),
+    customerName: val_(p.customerName),
+    savedBuildId: val_(p.savedBuildId),
+    savedBuildHandle: val_(p.savedBuildHandle),
+    savedBuildName: val_(p.savedBuildName),
+    saveBuildStatus: val_(p.saveBuildStatus),
+    subtotalBase: val_(p.subtotalBase),
+    rawBundleDiscount: val_(p.rawBundleDiscount),
+    bundleDiscount: val_(p.bundleDiscount),
+    promoHandle: val_(p.promoHandle),
+    promoLabel: val_(p.promoLabel),
+    promoDiscount: val_(p.promoDiscount),
+    promoActive: val_(p.promoActive),
+    promoValid: val_(p.promoValid),
+    promoStackWithBundleDiscount: val_(p.promoStackWithBundleDiscount),
+    promoSuppressedByAddon: val_(p.promoSuppressedByAddon),
+    promoMissingCount: val_(p.promoMissingCount),
+    addonRuleHandles: val_(p.addonRuleHandles),
+    addonRuleLabels: val_(p.addonRuleLabels),
+    addonDiscountLabels: val_(p.addonDiscountLabels),
+    addonDiscountCount: val_(p.addonDiscountCount),
+    addonDiscountTotal: val_(p.addonDiscountTotal),
+    addonSuppressesBundleDiscount: val_(p.addonSuppressesBundleDiscount),
+    addonSuppressesPrimaryPromo: val_(p.addonSuppressesPrimaryPromo),
+    manualOff: val_(p.manualOff),
+    payableSubtotal: val_(p.payableSubtotal),
+    casefans_title: val_(casefans.title), casefans_handle: val_(casefans.handle), casefans_productId: val_(casefans.productId), casefans_variantId: val_(casefans.variantId), casefans_vendor: val_(casefans.vendor), casefans_price: val_(casefans.price),
+    casefans_qty_total: val_(p.casefans_qty_total),
+    other_title: val_(other.title), other_handle: val_(other.handle), other_productId: val_(other.productId), other_variantId: val_(other.variantId), other_vendor: val_(other.vendor), other_price: val_(other.price),
+    other_qty_total: val_(p.other_qty_total)
+  };
+
+  // Output in the sheet's actual header order
+  return (headers || SCHEMA_HEADERS).map((h) => (h in m ? m[h] : ''));
+}
+
+function val_(v) {
+  return (v === undefined || v === null) ? '' : v;
+}
+
+function nowPhilippineIso_() {
+  const base = Utilities.formatDate(new Date(), PH_TIMEZONE, "yyyy-MM-dd'T'HH:mm:ss");
+  return `${base}+08:00`;
+}
+
+function nowPhilippineDate_() {
+  return Utilities.formatDate(new Date(), PH_TIMEZONE, 'yyyy-MM-dd');
+}
+
+function normalizeSourceTag_(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function isSourceEvent_(eventName) {
+  const event = String(eventName || '').trim();
+  return [
+    'link_open',
+    'pc_builder_open',
+    'page_open',
+    'cta_click'
+  ].indexOf(event) >= 0;
+}
+
+function appendSourceEvent_(ss, payload) {
+  const sheet = ss.getSheetByName('link_source_events') || ss.insertSheet('link_source_events');
+  const headers = ensureSheetHeaders_(sheet, SOURCE_EVENT_HEADERS);
+  const row = buildSourceEventRow_(payload, headers);
+  sheet.appendRow(row);
+}
+
+function buildSourceEventRow_(payload, headers) {
+  const m = {
+    timestamp: nowPhilippineIso_(),
+    date: nowPhilippineDate_(),
+    event: val_(payload.event || 'link_open'),
+    openId: val_(payload.openId),
+    sourceTag: normalizeSourceTag_(payload.sourceTag),
+    campaign: normalizeSourceTag_(payload.campaign),
+    content: normalizeSourceTag_(payload.content),
+    promoHandle: normalizeSourceTag_(payload.promoHandle),
+    referrerHost: String(payload.referrerHost || '').trim().toLowerCase(),
+    referrerUrl: val_(payload.referrerUrl),
+    entryType: val_(payload.entryType),
+    pageType: normalizeSourceTag_(payload.pageType),
+    ctaName: normalizeSourceTag_(payload.ctaName),
+    targetUrl: val_(payload.targetUrl),
+    pageUrl: val_(payload.pageUrl),
+    quoteCode: val_(payload.quoteCode),
+    quoteVersion: val_(payload.quoteVersion),
+    quoteLink: val_(payload.quoteLink),
+    buildLink: val_(payload.buildLink),
+    sessionId: val_(payload.sessionId),
+    customerId: val_(payload.customerId),
+    customerEmail: val_(payload.customerEmail),
+    deviceType: val_(payload.deviceType),
+    os: val_(payload.os),
+    browser: val_(payload.browser),
+    uaPlatform: val_(payload.uaPlatform),
+    uaMobileHint: val_(payload.uaMobileHint),
+    userAgent: val_(payload.userAgent)
+  };
+
+  return (headers || SOURCE_EVENT_HEADERS).map((header) => (header in m ? m[header] : ''));
+}
+
+function rebuildSourceDailySummary_(ss) {
+  const rawSheet = ss.getSheetByName('link_source_events') || ss.insertSheet('link_source_events');
+  const summarySheet = ss.getSheetByName('link_source_daily') || ss.insertSheet('link_source_daily');
+  const rawHeaders = ensureSheetHeaders_(rawSheet, SOURCE_EVENT_HEADERS);
+
+  ensureSheetHeaders_(summarySheet, SOURCE_DAILY_HEADERS);
+
+  const lastRow = rawSheet.getLastRow();
+  const rows = lastRow > 1
+    ? rawSheet.getRange(2, 1, lastRow - 1, rawHeaders.length).getValues()
+    : [];
+
+  const indexByHeader = {};
+  rawHeaders.forEach((header, idx) => {
+    indexByHeader[header] = idx;
+  });
+
+  const counts = {};
+  rows.forEach((row) => {
+    const date = String(row[indexByHeader.date] || '').trim();
+    const event = normalizeSourceTag_(row[indexByHeader.event]) || 'link_open';
+    const pageType = normalizeSourceTag_(row[indexByHeader.pageType]);
+    const sourceTag = normalizeSourceTag_(row[indexByHeader.sourceTag]);
+    if (!date || !sourceTag) return;
+    const key = [date, event, pageType, sourceTag].join('||');
+    counts[key] = (counts[key] || 0) + 1;
+  });
+
+  const summaryRows = Object.keys(counts)
+    .sort((a, b) => {
+      const [dateA] = a.split('||');
+      const [dateB] = b.split('||');
+      if (dateA === dateB) return a.localeCompare(b);
+      return dateA < dateB ? 1 : -1;
+    })
+    .map((key) => {
+      const [date, event, pageType, sourceTag] = key.split('||');
+      return [date, event, pageType, sourceTag, counts[key]];
+    });
+
+  summarySheet.clearContents();
+  summarySheet.getRange(1, 1, 1, SOURCE_DAILY_HEADERS.length).setValues([SOURCE_DAILY_HEADERS]);
+  if (summaryRows.length) {
+    summarySheet.getRange(2, 1, summaryRows.length, SOURCE_DAILY_HEADERS.length).setValues(summaryRows);
+  }
+}
+
+function rebuildSourceCampaignDailySummary_(ss) {
+  const rawSheet = ss.getSheetByName('link_source_events') || ss.insertSheet('link_source_events');
+  const summarySheet = ss.getSheetByName('link_source_campaign_daily') || ss.insertSheet('link_source_campaign_daily');
+  const rawHeaders = ensureSheetHeaders_(rawSheet, SOURCE_EVENT_HEADERS);
+
+  ensureSheetHeaders_(summarySheet, SOURCE_CAMPAIGN_DAILY_HEADERS);
+
+  const lastRow = rawSheet.getLastRow();
+  const rows = lastRow > 1
+    ? rawSheet.getRange(2, 1, lastRow - 1, rawHeaders.length).getValues()
+    : [];
+
+  const indexByHeader = {};
+  rawHeaders.forEach((header, idx) => {
+    indexByHeader[header] = idx;
+  });
+
+  const counts = {};
+  rows.forEach((row) => {
+    const date = String(row[indexByHeader.date] || '').trim();
+    const sourceTag = normalizeSourceTag_(row[indexByHeader.sourceTag]);
+    if (!date || !sourceTag) return;
+
+    const event = normalizeSourceTag_(row[indexByHeader.event]) || 'link_open';
+    const pageType = normalizeSourceTag_(row[indexByHeader.pageType]);
+    const campaign = normalizeSourceTag_(row[indexByHeader.campaign]);
+    const content = normalizeSourceTag_(row[indexByHeader.content]);
+    const promoHandle = normalizeSourceTag_(row[indexByHeader.promoHandle]);
+    const ctaName = normalizeSourceTag_(row[indexByHeader.ctaName]);
+    const deviceType = String(row[indexByHeader.deviceType] || '').trim().toLowerCase();
+    const key = [date, event, pageType, sourceTag, campaign, content, promoHandle, ctaName, deviceType].join('||');
+    counts[key] = (counts[key] || 0) + 1;
+  });
+
+  const summaryRows = Object.keys(counts)
+    .sort((a, b) => {
+      const aParts = a.split('||');
+      const bParts = b.split('||');
+      if (aParts[0] !== bParts[0]) return aParts[0] < bParts[0] ? 1 : -1;
+      return a.localeCompare(b);
+    })
+    .map((key) => {
+      const [date, event, pageType, sourceTag, campaign, content, promoHandle, ctaName, deviceType] = key.split('||');
+      return [date, event, pageType, sourceTag, campaign, content, promoHandle, ctaName, deviceType, counts[key]];
+    });
+
+  summarySheet.clearContents();
+  summarySheet.getRange(1, 1, 1, SOURCE_CAMPAIGN_DAILY_HEADERS.length).setValues([SOURCE_CAMPAIGN_DAILY_HEADERS]);
+  if (summaryRows.length) {
+    summarySheet.getRange(2, 1, summaryRows.length, SOURCE_CAMPAIGN_DAILY_HEADERS.length).setValues(summaryRows);
+  }
+}
+
+function json_(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doGet(e) {
+  const action = (e && e.parameter && e.parameter.action) ? String(e.parameter.action) : '';
+  if (action !== 'get_quote') return jsjsonp_({ ok: false, error: 'Invalid action' }, e);
+
+  const quote = (e.parameter && e.parameter.quote) ? String(e.parameter.quote).trim() : '';
+  const v = (e.parameter && e.parameter.v) ? String(e.parameter.v).trim() : '1';
+  if (!quote) return jsjsonp_({ ok: false, error: 'Missing quote' }, e);
+
+  const payloadJson = findQuotePayload_(quote, v);
+  if (!payloadJson) return jsjsonp_({ ok: false, error: 'Not found' }, e);
+
+  let payload;
+  try { payload = JSON.parse(payloadJson); } catch (_) { payload = payloadJson; }
+
+  return jsjsonp_({ ok: true, payload: payload }, e);
+}
+
+function jsjsonp_(obj, e) {
+  const cb = (e && e.parameter && e.parameter.callback) ? String(e.parameter.callback) : '';
+  const safeCb = /^[a-zA-Z_$][0-9a-zA-Z_$]*$/.test(cb) ? cb : 'callback';
+  const body = `${safeCb}(${JSON.stringify(obj)});`;
+  return ContentService.createTextOutput(body).setMimeType(ContentService.MimeType.JAVASCRIPT);
+}
+
+function upsertQuote_(ss, payload) {
+  const sheet = ss.getSheetByName('quotes') || ss.insertSheet('quotes');
+
+  // Ensure headers exist
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['quoteCode','quoteVersion','payloadJson','updatedAt']);
+  }
+
+  const quoteCode = String(payload.quoteCode || '').trim();
+  const quoteVersion = String(payload.quoteVersion || '1').trim();
+  if (!quoteCode) return;
+
+  const payloadJson = JSON.stringify(payload);
+  const now = nowPhilippineIso_();
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = Math.max(1, sheet.getLastColumn());
+  const values = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+
+  // Find matching row
+  let matchRow = -1;
+  for (let r = 1; r < values.length; r += 1) {
+    const qc = String(values[r][0] || '').trim();
+    const qv = String(values[r][1] || '').trim();
+    if (qc === quoteCode && qv === quoteVersion) {
+      matchRow = r + 1;
+      break;
+    }
+  }
+
+  if (matchRow > 0) {
+    sheet.getRange(matchRow, 3).setValue(payloadJson);
+    sheet.getRange(matchRow, 4).setValue(now);
+  } else {
+    sheet.appendRow([quoteCode, quoteVersion, payloadJson, now]);
+  }
+}
+
+function findQuotePayload_(quoteCode, quoteVersion) {
+  const ss = getSpreadsheet_();
+  if (!ss) return null;
+
+  const sheet = ss.getSheetByName('quotes');
+  if (!sheet) return null;
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+
+  const values = sheet.getRange(2, 1, lastRow - 1, 4).getValues();
+  for (let i = 0; i < values.length; i += 1) {
+    const qc = String(values[i][0] || '').trim();
+    const qv = String(values[i][1] || '').trim();
+    if (qc === String(quoteCode).trim() && qv === String(quoteVersion).trim()) {
+      return String(values[i][2] || '').trim();
+    }
+  }
+  return null;
+}

@@ -6,10 +6,14 @@ Release 1 focuses on:
 
 - shop profile pages
 - admin dashboard
+- manual seller listings
+- guided catalog-based Add Listing
 - Google Sheets published CSV import
 - public price lists
 - quote request forms
 - quote inbox for shop owners
+- listings-first seller profiles
+- inventory quantity and listing availability
 - Facebook Page and Messenger links
 
 Later phases will add PC Builder, compatibility rules, shop branding, shareable build links, bundle/promo logic, FPS Finder, and delivery/map APIs.
@@ -44,9 +48,14 @@ Required columns:
 Optional columns:
 
 - `brand`
+- `condition`
 - `sku`
 - `model`
 - `stock_status`
+- `availability_status` (`on_hand`, `pre_order`, or `sold_out`)
+- `inventory_quantity`
+- `show_inventory_quantity`
+- `catalog_item_id`
 - `image_url`
 - `product_url`
 - `description`

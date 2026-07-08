@@ -1,5 +1,5 @@
 import { createServiceSupabaseClient, createUserSupabaseClient, hasSupabaseEnv } from "@/lib/supabase";
-import type { CurrentShop, Product, ProductImport, QuoteRequest, Shop } from "@/lib/types";
+import type { CurrentShop, Product, ProductCatalogItem, ProductImport, QuoteRequest, Shop } from "@/lib/types";
 
 export async function getCurrentShop(): Promise<CurrentShop> {
   if (!hasSupabaseEnv()) return { shop: null, userId: null };
@@ -58,6 +58,30 @@ export async function getProducts(shopId: string): Promise<Product[]> {
   return (data || []) as Product[];
 }
 
+export async function getProductCatalogItems(): Promise<ProductCatalogItem[]> {
+  if (!hasSupabaseEnv()) return [];
+
+  const service = createServiceSupabaseClient();
+  const { data } = await service
+    .from("product_catalog_items")
+    .select("*")
+    .eq("is_active", true)
+    .order("category", { ascending: true })
+    .order("brand", { ascending: true })
+    .order("canonical_name", { ascending: true })
+    .limit(500);
+
+  return (data || []) as ProductCatalogItem[];
+}
+
+export async function getProductById(shopId: string, productId: string): Promise<Product | null> {
+  if (!hasSupabaseEnv()) return null;
+
+  const service = createServiceSupabaseClient();
+  const { data } = await service.from("products").select("*").eq("shop_id", shopId).eq("id", productId).maybeSingle();
+  return (data as Product | null) || null;
+}
+
 export async function getActiveProducts(shopId: string): Promise<Product[]> {
   if (!hasSupabaseEnv()) return [];
 
@@ -71,6 +95,21 @@ export async function getActiveProducts(shopId: string): Promise<Product[]> {
     .order("price", { ascending: true });
 
   return (data || []) as Product[];
+}
+
+export async function getActiveProductByHandle(shopId: string, handle: string): Promise<Product | null> {
+  if (!hasSupabaseEnv()) return null;
+
+  const service = createServiceSupabaseClient();
+  const { data } = await service
+    .from("products")
+    .select("*")
+    .eq("shop_id", shopId)
+    .eq("handle", handle)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  return (data as Product | null) || null;
 }
 
 export async function getImports(shopId: string): Promise<ProductImport[]> {
