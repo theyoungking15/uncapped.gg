@@ -51,75 +51,8 @@ Is SKU the same as part number?
 Image URL should be upload in the future
 remove the quick description for now
 
-So after adding The condition category the uploaded code that we did on Superbase   alter table public.products
-    add column if not exists handle text,
-    add column if not exists compare_at_price numeric(12, 2),
-    add column if not exists quick_description text,
-    add column if not exists availability_tier integer,
-    add column if not exists lead_time_label text,
-    add column if not exists pc_builder_enabled boolean not null default true,
-    add column if not exists compat jsonb not null default '{}'::jsonb,
-    add column if not exists image_urls jsonb not null default '[]'::jsonb,
-    add column if not exists source_metadata jsonb not null default '{}'::jsonb;
 
-  alter table public.shops
-    add column if not exists about text,
-    add column if not exists facebook_marketplace_url text,
-    add column if not exists external_review_url text,
-    add column if not exists external_rating numeric(3, 2),
-    add column if not exists external_review_count integer;
-
-  alter table public.products
-    add column if not exists condition text not null default 'brand_new';
-
-  alter table public.quote_items
-    add column if not exists condition_snapshot text;
-
-  update public.products
-  set condition = 'brand_new'
-  where condition is null or condition = '';
-
-  do $$
-  begin
-    if not exists (select 1 from pg_constraint where conname = 'products_condition_check') then
-      alter table public.products
-        add constraint products_condition_check
-        check (condition in ('brand_new', 'new_open_box', 'used_like_new', 'used_good', 'as_is'));
-    end if;
-
-    if not exists (select 1 from pg_constraint where conname = 'quote_items_condition_snapshot_check') then
-      alter table public.quote_items
-        add constraint quote_items_condition_snapshot_check
-        check (
-          condition_snapshot is null or
-          condition_snapshot in ('brand_new', 'new_open_box', 'used_like_new', 'used_good', 'as_is')
-        );
-    end if;
-
-    if not exists (select 1 from pg_constraint where conname = 'shops_external_rating_check') then
-      alter table public.shops
-        add constraint shops_external_rating_check
-        check (external_rating is null or (external_rating >= 0 and external_rating <= 5));
-    end if;
-
-    if not exists (select 1 from pg_constraint where conname = 'shops_external_review_count_check') then
-      alter table public.shops
-        add constraint shops_external_review_count_check
-        check (external_review_count is null or external_review_count >= 0);
-    end if;
-  end $$;
-
-  create unique index if not exists products_shop_handle_idx
-  on public.products(shop_id, handle)
-  where handle is not null;
-
-  create index if not exists products_shop_pc_builder_idx
-  on public.products(shop_id, pc_builder_enabled, is_active);
-
-  create index if not exists products_shop_listing_filters_idx
-  on public.products(shop_id, is_active, category, condition);
-
-  notify pgrst, 'reload schema';
   This in particular it uh popped up the core compatibility like the CPU socket memory technology something like that CPU and memory specs what we are trying to Automate but at the same time prepare ourselves to have a good foundation for the specific product listings that we are trying to upload so for CPU the important parts are the CPU socket CPU cores CPU threads base clock CPU base clock CPU boost club TDP and we want to automatically filter out all the unnecessary parts that it's not needed right so for CPU these are that's just an example right but the parts that I needed or probably the meta objects that are needed for each specific category or component is in the components metaobject.md 
 
-  
+  Probably in the future let's make brands drop down where we all have the brand that we have like whatever is available on product sheet or the imported product she then we can filter out those like products in the future so yeah let's just make it a drop down in the future Not really important right now 
+  And also In comparison with Shopify how we set up products right some are text based
